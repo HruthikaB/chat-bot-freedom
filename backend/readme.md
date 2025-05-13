@@ -17,7 +17,7 @@ This project uses **FastAPI**, **MySQL**, and **SQLAlchemy** to serve product da
 1. **Clone the Repository:**
 
 ```bash
-cd cat-bot/backend
+cd chat-bot/backend
 ```
 
 2. **Create Virtual Environment (optional but recommended):**

@@ -1,6 +1,6 @@
 # app/main.py
 
-from fastapi import FastAPI, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from app.database import SessionLocal
 from app.models import Product
@@ -9,12 +9,12 @@ import os
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-app = FastAPI()
+router = APIRouter()
 
 class ChatRequest(BaseModel):
     message: str
 
-@app.post("/chat")
+@router.post("/chat")
 def chat_with_bot(request: ChatRequest):
     prompt = f"""
 You are an intelligent shopping assistant. Based on the user input, extract filters like:

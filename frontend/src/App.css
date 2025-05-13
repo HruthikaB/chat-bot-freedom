@@ -40,3 +40,9 @@
 .read-the-docs {
   color: #888;
 }
+
+/* Custom styles for filters */
+.slider-purple .rounded-full {
+  background-color: var(--shop-purple);
+}
+
