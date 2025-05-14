@@ -1,20 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, MessagesSquare, Heart, ShoppingCart, X } from "lucide-react";
+import { Search, MessagesSquare, Heart, ShoppingCart, X, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 type HeaderProps = {
   toggleChat: () => void;
+  toggleProductsFilter?: () => void;
 };
 
-const Header = ({ toggleChat }: HeaderProps) => {
+const Header = ({ toggleChat, toggleProductsFilter }: HeaderProps) => {
   const [searchText, setSearchText] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setTimeout>;
     if (isFocused && searchText === '') {
       timer = setTimeout(() => {
         setShowSuggestions(true);
@@ -79,6 +80,14 @@ const Header = ({ toggleChat }: HeaderProps) => {
       </div>
       
       <div className="flex items-center gap-4">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="rounded-full hover:bg-white/10"
+          onClick={toggleProductsFilter}
+        >
+          <Filter className="h-7.5 w-7.5 text-shop-purple" />
+        </Button>
         <Button 
           variant="ghost" 
           size="icon" 

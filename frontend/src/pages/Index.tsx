@@ -4,18 +4,25 @@ import Filters from "@/components/Filters";
 import RelatedShops from "@/components/RelatedShops";
 import Results from "@/components/Results";
 import ChatBot from "@/components/ChatBot";
+import ProductsFilter from "@/components/ProductsFilter";
 
 const Index = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isChatMaximized, setIsChatMaximized] = useState(false);
+  const [isProductsFilterOpen, setIsProductsFilterOpen] = useState(false);
+  const [isProductsFilterMaximized, setIsProductsFilterMaximized] = useState(false);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
   const toggleChat = () => {
     setIsChatOpen(prevState => !prevState);
-    console.log("Chat toggle clicked, new state:", !isChatOpen);
+    if (isProductsFilterOpen) setIsProductsFilterOpen(false);
   };
 
-  // Track window resize for responsive behavior
+  const toggleProductsFilter = () => {
+    setIsProductsFilterOpen(prevState => !prevState);
+    if (isChatOpen) setIsChatOpen(false);
+  };
+
   useEffect(() => {
     const handleResize = () => {
       setWindowWidth(window.innerWidth);
@@ -25,22 +32,15 @@ const Index = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Debug log to track state changes
   useEffect(() => {
-    console.log("Chat state updated:", isChatOpen);
-
-    // Remove class when chat is closed
     if (!isChatOpen) {
       document.body.classList.remove('chat-open');
       document.body.classList.remove('chatbot-maximized');
     }
   }, [isChatOpen]);
 
-  // Listen for maximize state changes from the ChatBot
   const handleMaximizeChange = (isMaximized: boolean) => {
-    setIsChatMaximized(isMaximized);
-    console.log("Chat maximized state updated:", isMaximized);
-    
+    setIsChatMaximized(isMaximized);    
     if (isMaximized) {
       document.body.classList.add('chatbot-maximized');
     } else {
@@ -48,21 +48,31 @@ const Index = () => {
     }
   };
 
+  const handleProductsFilterMaximizeChange = (isMaximized: boolean) => {
+    setIsProductsFilterMaximized(isMaximized);
+  };
+
   return (
     <div className="min-h-screen bg-white">
-      <Header toggleChat={toggleChat} />
-      <div className="filters-container pt-24 px-6"> {/* Restored original container class and px-6 padding */}
+      <Header toggleChat={toggleChat} toggleProductsFilter={toggleProductsFilter} />
+      <div className="filters-container pt-24 px-6">
         <Filters />
       </div>
-      <div className="max-w-[1800px] mx-auto px-6"> {/* Restored original max-width */}
-        <RelatedShops isChatMaximized={isChatMaximized} />
-        <Results isChatMaximized={isChatMaximized} />
+      <div className="max-w-[1800px] mx-auto px-6">
+        <RelatedShops isChatMaximized={isChatMaximized || isProductsFilterMaximized} />
+        <Results isChatMaximized={isChatMaximized || isProductsFilterMaximized} />
       </div>
       
       <ChatBot 
         isOpen={isChatOpen} 
         onClose={() => setIsChatOpen(false)}
         onMaximizeChange={handleMaximizeChange}
+      />
+
+      <ProductsFilter
+        isOpen={isProductsFilterOpen}
+        onClose={() => setIsProductsFilterOpen(false)}
+        onMaximizeChange={handleProductsFilterMaximizeChange}
       />
     </div>
   );

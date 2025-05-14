@@ -1,13 +1,25 @@
 import { useState, useEffect } from 'react';
 import { X, Send, Bot, Maximize, Minimize, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { sendChatMessage, formatChatResponse } from "@/lib/api";
-import { MessageType } from '@/lib/types';
+import { MessageType, ProductFilterParams } from '@/lib/types';
+import { fetchFilteredProducts, formatFilterResponse } from '@/lib/api';
 
-type ChatBotProps = {
+type ProductsFilterProps = {
   isOpen: boolean;
   onClose: () => void;
   onMaximizeChange: (isMaximized: boolean) => void;
+};
+
+type ProductType = {
+  id: number;
+  name: string;
+  brand: string;
+  size: string;
+  color: string;
+  price: number;
+  image_url?: string;
+  category?: string;
+  type?: string;
 };
 
 const Message = ({ message }: { message: MessageType }) => {
@@ -56,29 +68,43 @@ const Message = ({ message }: { message: MessageType }) => {
   );
 };
 
-const ChatBot = ({ isOpen, onClose, onMaximizeChange }: ChatBotProps) => {
+const ProductsFilter = ({ isOpen, onClose, onMaximizeChange }: ProductsFilterProps) => {
   const [visible, setVisible] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
-  const [messages, setMessages] = useState<MessageType[]>([
-    {
-      id: 1,
-      text: 'Hi there! I can help you find the perfect shoes. What type are you looking for today?',
-      sender: 'bot',
-      timestamp: new Date()
-    }
-  ]);
+  const [messages, setMessages] = useState<MessageType[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [products, setProducts] = useState<ProductType[]>([]);
+
+  const questions = [
+    { key: "category", text: "What category of products are you looking for? (e.g., shoes, clothing, accessories)" },
+    { key: "type", text: "What specific type are you interested in? (e.g., sneakers, t-shirts, watches)" },
+    { key: "size", text: "What size do you need?" }
+  ];
 
   useEffect(() => {
     if (isOpen) {
       setVisible(true);
+      if (messages.length === 0) {
+        // Initialize with first question
+        setMessages([{
+          id: 1,
+          text: "I'll help you find the perfect products. " + questions[0].text,
+          sender: 'bot',
+          timestamp: new Date()
+        }]);
+        // Reset filters when starting a new conversation
+        setFilters({});
+        setCurrentStep(0);
+      }
     } else {
       setVisible(false);
       setIsMaximized(false);
       onMaximizeChange(false);
     }
-  }, [isOpen, onMaximizeChange]);
+  }, [isOpen, onMaximizeChange, messages.length]);
 
   useEffect(() => {
     onMaximizeChange(isMaximized);
@@ -95,23 +121,56 @@ const ChatBot = ({ isOpen, onClose, onMaximizeChange }: ChatBotProps) => {
     };
     
     setMessages([...messages, newUserMessage]);
-    const userQuery = inputValue;
+    
+    const userAnswer = inputValue.trim();
     setInputValue('');
     setIsLoading(true);
 
-    try {
-      const data = await sendChatMessage(userQuery);
-      
-      const responseText = formatChatResponse(data);
+    const key = questions[currentStep].key;
+    
+    const updatedFilters = { ...filters, [key]: userAnswer };
+    
+    setFilters(updatedFilters);
+    
+    console.log(`Added ${key}=${userAnswer} to filters`, updatedFilters);
 
-      const newBotMessage: MessageType = {
-        id: messages.length + 2,
-        text: responseText,
-        sender: 'bot',
-        timestamp: new Date()
-      };
-      
-      setMessages(prev => [...prev, newBotMessage]);
+    try {
+      if (currentStep < questions.length - 1) {
+        const nextStep = currentStep + 1;
+        setCurrentStep(nextStep);
+        
+        const nextQuestionMessage: MessageType = {
+          id: messages.length + 2,
+          text: questions[nextStep].text,
+          sender: 'bot',
+          timestamp: new Date()
+        };
+        
+        setMessages(prev => [...prev, nextQuestionMessage]);
+      } else {
+        const apiFilters: ProductFilterParams = {
+          category: updatedFilters.category || '',
+          type: updatedFilters.type || '',     
+          size: updatedFilters.size || ''        
+        };
+        
+        const productsData = await fetchFilteredProducts(apiFilters);
+        setProducts(productsData);
+        
+        const productsText = formatFilterResponse(productsData);
+        
+        const productsMessage: MessageType = {
+          id: messages.length + 2,
+          text: productsText,
+          sender: 'bot',
+          timestamp: new Date()
+        };
+        
+        setMessages(prev => [...prev, productsMessage]);
+        
+        setCurrentStep(0);
+        setFilters({});
+      }
     } catch (error) {
       console.error('Error sending message to backend:', error);
       
@@ -130,7 +189,6 @@ const ChatBot = ({ isOpen, onClose, onMaximizeChange }: ChatBotProps) => {
 
   const toggleMaximize = () => {
     setIsMaximized(prev => !prev);
-    console.log("Chatbot maximized state:", !isMaximized);
   };
 
   const handleSuggestionClick = (suggestion: string) => {
@@ -141,7 +199,9 @@ const ChatBot = ({ isOpen, onClose, onMaximizeChange }: ChatBotProps) => {
     return null;
   }
 
-  const suggestions = ['Sneakers', 'Running shoes', 'Boots'];
+  const suggestions = currentStep === 0 ? ['Shoes', 'Clothing', 'Accessories'] :
+                     currentStep === 1 ? ['Sneakers', 'Boots', 'Sandals'] :
+                     ['S', 'M', 'L', 'XL'];
 
   return (
     <div 
@@ -152,7 +212,7 @@ const ChatBot = ({ isOpen, onClose, onMaximizeChange }: ChatBotProps) => {
       }`}
     >
       <div className="p-4 bg-shop-darkPurple border-b flex justify-between items-center">
-        <h3 className="font-medium text-shop-purple">Shop AI</h3>
+        <h3 className="font-medium text-shop-purple">Products Filter</h3>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={toggleMaximize} className="h-6 w-6 hover:bg-white/10">
             {isMaximized ? <Minimize className="h-4 w-4 text-shop-purple" /> : <Maximize className="h-4 w-4 text-shop-purple" />}
@@ -220,4 +280,4 @@ const ChatBot = ({ isOpen, onClose, onMaximizeChange }: ChatBotProps) => {
   );
 };
 
-export default ChatBot;
+export default ProductsFilter;

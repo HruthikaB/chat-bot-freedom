@@ -1,18 +1,7 @@
 import React from 'react';
 import { Heart, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-type Product = {
-  id: number;
-  name: string;
-  brand: string;
-  price: number;
-  originalPrice?: number;
-  rating: number;
-  reviewCount: number;
-  image: string;
-  discount?: string;
-};
+import { Product } from '@/lib/types';
 
 interface ResultsProps {
   isChatMaximized?: boolean;

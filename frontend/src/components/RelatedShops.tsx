@@ -6,12 +6,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
-
-type ShopCardProps = {
-  name: string;
-  image: string;
-  products: number;
-};
+import { ShopCardProps } from '@/lib/types';
 
 interface RelatedShopsProps {
   isChatMaximized?: boolean;
