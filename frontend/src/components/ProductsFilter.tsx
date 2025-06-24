@@ -1,25 +1,61 @@
-import { useState, useEffect } from 'react';
-import { X, Send, Bot, Maximize, Minimize, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, Send, Bot, Maximize, Minimize, ThumbsUp, ThumbsDown, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { MessageType, ProductFilterParams } from '@/lib/types';
-import { fetchFilteredProducts, formatFilterResponse } from '@/lib/api';
+import { MessageType, Product } from '@/lib/types';
+import { fetchFilteredProducts, formatProduct } from '@/lib/api';
 
 type ProductsFilterProps = {
   isOpen: boolean;
   onClose: () => void;
   onMaximizeChange: (isMaximized: boolean) => void;
+  onProductsFiltered: (products: Product[]) => void;
 };
 
-type ProductType = {
-  id: number;
-  name: string;
-  brand: string;
-  size: string;
-  color: string;
-  price: number;
-  image_url?: string;
+interface FilterState {
   category?: string;
+  manufacturer?: string;
   type?: string;
+  min_price?: number;
+  max_price?: number;
+}
+
+type ProductMessageProps = {
+  products: Product[];
+  initialLimit?: number;
+}
+
+const ProductMessage = ({ products, initialLimit = 5 }: ProductMessageProps) => {
+  const [showAll, setShowAll] = useState(false);
+  const displayedProducts = showAll ? products : products.slice(0, initialLimit);
+  const hasMore = products.length > initialLimit;
+
+  return (
+    <div className="flex flex-col gap-3">
+      {displayedProducts.map((product, index) => (
+        <div key={index} className="text-sm whitespace-pre-line">
+          {formatProduct(product, index)}
+        </div>
+      ))}
+      {hasMore && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowAll(!showAll)}
+          className="flex items-center gap-1 text-shop-purple hover:text-shop-purple/80"
+        >
+          {showAll ? (
+            <>
+              Show Less <ChevronUp className="h-4 w-4" />
+            </>
+          ) : (
+            <>
+              Show More ({products.length - initialLimit} more items) <ChevronDown className="h-4 w-4" />
+            </>
+          )}
+        </Button>
+      )}
+    </div>
+  );
 };
 
 const Message = ({ message }: { message: MessageType }) => {
@@ -45,6 +81,11 @@ const Message = ({ message }: { message: MessageType }) => {
             : 'bg-shop-purple text-white'
         }`}>
           <p className="text-sm whitespace-pre-line">{message.text}</p>
+          {message.products && message.products.length > 0 && (
+            <div className="mt-2 pt-2">
+              <ProductMessage products={message.products} />
+            </div>
+          )}
         </div>
         
         {message.sender === 'bot' && (
@@ -68,37 +109,57 @@ const Message = ({ message }: { message: MessageType }) => {
   );
 };
 
-const ProductsFilter = ({ isOpen, onClose, onMaximizeChange }: ProductsFilterProps) => {
+const ProductsFilter = ({ isOpen, onClose, onMaximizeChange, onProductsFiltered }: ProductsFilterProps) => {
   const [visible, setVisible] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [messages, setMessages] = useState<MessageType[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
-  const [filters, setFilters] = useState<Record<string, string>>({});
-  const [products, setProducts] = useState<ProductType[]>([]);
+  const [filters, setFilters] = useState<FilterState>({});
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isLoading]);
 
   const questions = [
-    { key: "category", text: "What category of products are you looking for? (e.g., shoes, clothing, accessories)" },
-    { key: "type", text: "What specific type are you interested in? (e.g., sneakers, t-shirts, watches)" },
-    { key: "size", text: "What size do you need?" }
+    { 
+      key: "category", 
+      text: "What category of products are you looking for?" 
+    },
+    { 
+      key: "manufacturer", 
+      text: "Do you have a preferred manufacturer?" 
+    },
+    { 
+      key: "type", 
+      text: "What specific type are you interested in?" 
+    },
+    { 
+      key: "price_range", 
+      text: "What's your price range?" 
+    }
   ];
 
   useEffect(() => {
     if (isOpen) {
       setVisible(true);
       if (messages.length === 0) {
-        // Initialize with first question
         setMessages([{
           id: 1,
           text: "I'll help you find the perfect products. " + questions[0].text,
           sender: 'bot',
           timestamp: new Date()
         }]);
-        // Reset filters when starting a new conversation
         setFilters({});
         setCurrentStep(0);
       }
+      setTimeout(scrollToBottom, 100); // Ensure scroll after render
     } else {
       setVisible(false);
       setIsMaximized(false);
@@ -110,8 +171,25 @@ const ProductsFilter = ({ isOpen, onClose, onMaximizeChange }: ProductsFilterPro
     onMaximizeChange(isMaximized);
   }, [isMaximized, onMaximizeChange]);
 
+  const parsePriceRange = (input: string): { min_price?: number; max_price?: number } => {
+    if (!input || input.trim() === '') return {};
+    
+    const parts = input.split('-').map(part => parseFloat(part.trim()));
+    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+      return {
+        min_price: parts[0],
+        max_price: parts[1]
+      };
+    } else if (parts.length === 1 && !isNaN(parts[0])) {
+      return {
+        max_price: parts[0]
+      };
+    }
+    return {};
+  };
+
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
+    if (!inputValue.trim() && currentStep !== 3 || isLoading) return;
 
     const newUserMessage: MessageType = {
       id: messages.length + 1,
@@ -127,12 +205,19 @@ const ProductsFilter = ({ isOpen, onClose, onMaximizeChange }: ProductsFilterPro
     setIsLoading(true);
 
     const key = questions[currentStep].key;
-    
-    const updatedFilters = { ...filters, [key]: userAnswer };
+    let updatedFilters: FilterState;
+
+    if (key === 'price_range') {
+      const priceRange = parsePriceRange(userAnswer);
+      updatedFilters = { ...filters, ...priceRange };
+    } else {
+      updatedFilters = { 
+        ...filters, 
+        [key]: userAnswer || undefined 
+      };
+    }
     
     setFilters(updatedFilters);
-    
-    console.log(`Added ${key}=${userAnswer} to filters`, updatedFilters);
 
     try {
       if (currentStep < questions.length - 1) {
@@ -148,28 +233,54 @@ const ProductsFilter = ({ isOpen, onClose, onMaximizeChange }: ProductsFilterPro
         
         setMessages(prev => [...prev, nextQuestionMessage]);
       } else {
-        const apiFilters: ProductFilterParams = {
-          category: updatedFilters.category || '',
-          type: updatedFilters.type || '',     
-          size: updatedFilters.size || ''        
+        // Clean up filters before sending to API
+        const apiFilters = {
+          category: updatedFilters.category,
+          manufacturer: updatedFilters.manufacturer,
+          type: updatedFilters.type,
+          min_price: updatedFilters.min_price,
+          max_price: updatedFilters.max_price
         };
+
+        // Remove undefined values
+        Object.keys(apiFilters).forEach(key => {
+          if (apiFilters[key as keyof typeof apiFilters] === undefined) {
+            delete apiFilters[key as keyof typeof apiFilters];
+          }
+        });
         
         const productsData = await fetchFilteredProducts(apiFilters);
-        setProducts(productsData);
         
-        const productsText = formatFilterResponse(productsData);
+        // Pass filtered products to parent
+        onProductsFiltered(productsData);
         
+        const responseMessage = productsData.length === 0
+          ? "I couldn't find any products matching your criteria. Would you like to try a different search?"
+          : `I found ${productsData.length} product${productsData.length === 1 ? '' : 's'} matching your criteria:`;
+
         const productsMessage: MessageType = {
           id: messages.length + 2,
-          text: productsText,
+          text: responseMessage,
           sender: 'bot',
-          timestamp: new Date()
+          timestamp: new Date(),
+          products: productsData
         };
         
         setMessages(prev => [...prev, productsMessage]);
         
+        // Reset for new search
         setCurrentStep(0);
         setFilters({});
+        
+        // Add prompt for new search
+        setTimeout(() => {
+          setMessages(prev => [...prev, {
+            id: prev.length + 1,
+            text: questions[0].text,
+            sender: 'bot',
+            timestamp: new Date()
+          }]);
+        }, 1000);
       }
     } catch (error) {
       console.error('Error sending message to backend:', error);
@@ -199,9 +310,13 @@ const ProductsFilter = ({ isOpen, onClose, onMaximizeChange }: ProductsFilterPro
     return null;
   }
 
-  const suggestions = currentStep === 0 ? ['Shoes', 'Clothing', 'Accessories'] :
-                     currentStep === 1 ? ['Sneakers', 'Boots', 'Sandals'] :
-                     ['S', 'M', 'L', 'XL'];
+  const suggestions = currentStep === 0 
+    ? ['Printer', 'Card Reader', 'Circuit Board'] 
+    : currentStep === 1 
+    ? ['Gilbarco', 'Wayne', 'Bennett','3M'] 
+    : currentStep === 2
+    ? ['Accounting','Resale', 'Repair', 'Component']
+    : ['0-500', '500-1000', '1000-2000'];
 
   return (
     <div 
@@ -241,6 +356,7 @@ const ProductsFilter = ({ isOpen, onClose, onMaximizeChange }: ProductsFilterPro
             </div>
           </div>
         )}
+        <div ref={messagesEndRef} />
       </div>
       
       <div className={`${isMaximized ? 'p-3 pb-2' : 'p-4'} border-t bg-white`}>
@@ -261,7 +377,7 @@ const ProductsFilter = ({ isOpen, onClose, onMaximizeChange }: ProductsFilterPro
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-            placeholder="Type your message..."
+            placeholder={currentStep === 3 ? "Enter price range or press Enter to skip" : "Type your message..."}
             className="w-full px-4 py-2 pr-10 bg-gray-100 rounded-full focus:outline-none text-sm min-h-[42px] border border-gray-200"
             disabled={isLoading}
           />
@@ -270,7 +386,7 @@ const ProductsFilter = ({ isOpen, onClose, onMaximizeChange }: ProductsFilterPro
             size="icon" 
             onClick={handleSendMessage} 
             className="absolute right-1 h-7 w-7"
-            disabled={isLoading || !inputValue.trim()}
+            disabled={isLoading || (!inputValue.trim() && currentStep !== 3)}
           >
             <Send className="h-4 w-4 text-shop-purple" />
           </Button>

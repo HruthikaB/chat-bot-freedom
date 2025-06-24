@@ -1,13 +1,53 @@
-import { useState, useEffect } from 'react';
-import { X, Send, Bot, Maximize, Minimize, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, Send, Bot, Maximize, Minimize, ThumbsUp, ThumbsDown, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { sendChatMessage, formatChatResponse } from "@/lib/api";
-import { MessageType } from '@/lib/types';
+import { sendChatMessage, formatProduct } from "@/lib/api";
+import { MessageType, Product } from '@/lib/types';
 
-type ChatBotProps = {
+interface ChatBotProps {
   isOpen: boolean;
   onClose: () => void;
   onMaximizeChange: (isMaximized: boolean) => void;
+  onProductsUpdate: (products: Product[]) => void;
+}
+
+type ProductMessageProps = {
+  products: Product[];
+  initialLimit?: number;
+}
+
+const ProductMessage = ({ products, initialLimit = 5 }: ProductMessageProps) => {
+  const [showAll, setShowAll] = useState(false);
+  const displayedProducts = showAll ? products : products.slice(0, initialLimit);
+  const hasMore = products.length > initialLimit;
+
+  return (
+    <div className="flex flex-col gap-3">
+      {displayedProducts.map((product, index) => (
+        <div key={index} className="text-sm whitespace-pre-line">
+          {formatProduct(product, index)}
+        </div>
+      ))}
+      {hasMore && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowAll(!showAll)}
+          className="flex items-center gap-1 text-shop-purple hover:text-shop-purple/80"
+        >
+          {showAll ? (
+            <>
+              Show Less <ChevronUp className="h-4 w-4" />
+            </>
+          ) : (
+            <>
+              Show More ({products.length - initialLimit} more items) <ChevronDown className="h-4 w-4" />
+            </>
+          )}
+        </Button>
+      )}
+    </div>
+  );
 };
 
 const Message = ({ message }: { message: MessageType }) => {
@@ -32,7 +72,11 @@ const Message = ({ message }: { message: MessageType }) => {
             ? 'bg-gray-100 text-black' 
             : 'bg-shop-purple text-white'
         }`}>
-          <p className="text-sm whitespace-pre-line">{message.text}</p>
+          {message.products ? (
+            <ProductMessage products={message.products} />
+          ) : (
+            <p className="text-sm whitespace-pre-line">{message.text}</p>
+          )}
         </div>
         
         {message.sender === 'bot' && (
@@ -56,23 +100,38 @@ const Message = ({ message }: { message: MessageType }) => {
   );
 };
 
-const ChatBot = ({ isOpen, onClose, onMaximizeChange }: ChatBotProps) => {
+const ChatBot: React.FC<ChatBotProps> = ({ 
+  isOpen, 
+  onClose, 
+  onMaximizeChange,
+  onProductsUpdate 
+}) => {
   const [visible, setVisible] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [messages, setMessages] = useState<MessageType[]>([
     {
       id: 1,
-      text: 'Hi there! I can help you find the perfect shoes. What type are you looking for today?',
+      text: 'Hi there! I can help you find products. What type of product are you looking for today?',
       sender: 'bot',
       timestamp: new Date()
     }
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isLoading]);
 
   useEffect(() => {
     if (isOpen) {
       setVisible(true);
+      setTimeout(scrollToBottom, 100); // Ensure scroll after render
     } else {
       setVisible(false);
       setIsMaximized(false);
@@ -87,31 +146,35 @@ const ChatBot = ({ isOpen, onClose, onMaximizeChange }: ChatBotProps) => {
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
 
-    const newUserMessage: MessageType = {
+    const userMessage: MessageType = {
       id: messages.length + 1,
       text: inputValue,
       sender: 'user',
       timestamp: new Date()
     };
-    
-    setMessages([...messages, newUserMessage]);
+
+    setMessages(prev => [...prev, userMessage]);
     const userQuery = inputValue;
     setInputValue('');
     setIsLoading(true);
 
     try {
-      const data = await sendChatMessage(userQuery);
+      const response = await sendChatMessage(userQuery);
       
-      const responseText = formatChatResponse(data);
-
-      const newBotMessage: MessageType = {
+      const botMessage: MessageType = {
         id: messages.length + 2,
-        text: responseText,
+        text: response.ai_response,
         sender: 'bot',
-        timestamp: new Date()
+        timestamp: new Date(),
+        products: response.products
       };
+
+      setMessages(prev => [...prev, botMessage]);
       
-      setMessages(prev => [...prev, newBotMessage]);
+      // Update products in parent component
+      if (response.products && response.products.length > 0) {
+        onProductsUpdate(response.products);
+      }
     } catch (error) {
       console.error('Error sending message to backend:', error);
       
@@ -130,7 +193,6 @@ const ChatBot = ({ isOpen, onClose, onMaximizeChange }: ChatBotProps) => {
 
   const toggleMaximize = () => {
     setIsMaximized(prev => !prev);
-    console.log("Chatbot maximized state:", !isMaximized);
   };
 
   const handleSuggestionClick = (suggestion: string) => {
@@ -141,7 +203,7 @@ const ChatBot = ({ isOpen, onClose, onMaximizeChange }: ChatBotProps) => {
     return null;
   }
 
-  const suggestions = ['Sneakers', 'Running shoes', 'Boots'];
+  const suggestions = ['Printer', 'Display', 'Circuit Board', 'Cash Drawer'];
 
   return (
     <div 
@@ -181,6 +243,7 @@ const ChatBot = ({ isOpen, onClose, onMaximizeChange }: ChatBotProps) => {
             </div>
           </div>
         )}
+        <div ref={messagesEndRef} />
       </div>
       
       <div className={`${isMaximized ? 'p-3 pb-2' : 'p-4'} border-t bg-white`}>
