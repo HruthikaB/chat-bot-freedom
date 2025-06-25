@@ -31,7 +31,7 @@ def get_table_schema(db: Session) -> str:
     """Get the table schema for context"""
     inspector = inspect(db.bind)
     
-    # Get table name - assuming it's 'products' or similar
+    # Get table name - assuming it's 'product'
     table_name = Product.__tablename__
     columns = inspector.get_columns(table_name)
     
@@ -82,16 +82,16 @@ def generate_sql_with_llm(user_message: str, db: Session) -> str:
     
     Examples:
     "Show me laptops under $1000" -> 
-    SELECT * FROM products WHERE (name LIKE '%laptop%' OR c_category LIKE '%laptop%') AND price <= 1000 LIMIT 50;
+    SELECT * FROM product WHERE (name LIKE '%laptop%' OR c_category LIKE '%laptop%') AND price <= 1000 LIMIT 50;
     
     "Dell gaming computers" ->
-    SELECT * FROM products WHERE c_manufacturer LIKE '%Dell%' AND (name LIKE '%gaming%' OR description LIKE '%gaming%') LIMIT 50;
+    SELECT * FROM product WHERE c_manufacturer LIKE '%Dell%' AND (name LIKE '%gaming%' OR description LIKE '%gaming%') LIMIT 50;
     
     "Featured products" ->
-    SELECT * FROM products WHERE if_featured = 1 LIMIT 50;
+    SELECT * FROM product WHERE if_featured = 1 LIMIT 50;
     
     "Printers between $100 and $500" ->
-    SELECT * FROM products WHERE (name LIKE '%printer%' OR c_category LIKE '%printer%') AND price BETWEEN 100 AND 500 LIMIT 50;
+    SELECT * FROM product WHERE (name LIKE '%printer%' OR c_category LIKE '%printer%') AND price BETWEEN 100 AND 500 LIMIT 50;
     
     Return ONLY the SQL query, no explanation or markdown formatting.
     """
@@ -133,7 +133,7 @@ def generate_fallback_sql(user_message: str) -> str:
     keywords = extract_keywords_fallback(user_message)
     
     if not keywords:
-        return "SELECT * FROM products LIMIT 50"
+        return "SELECT * FROM product LIMIT 50"
     
     # Build a simple search query
     conditions = []
@@ -142,7 +142,7 @@ def generate_fallback_sql(user_message: str) -> str:
         conditions.append(condition)
     
     where_clause = " OR ".join(conditions)
-    return f"SELECT * FROM products WHERE {where_clause} LIMIT 50"
+    return f"SELECT * FROM product WHERE {where_clause} LIMIT 50"
 
 def extract_keywords_fallback(user_message: str) -> List[str]:
     """Fallback keyword extraction using regex"""

@@ -15,7 +15,7 @@ export const sendChatMessage = async (message: string): Promise<ChatResponse> =>
 
 export const fetchProducts = async () => {
   try {
-    const response = await axios.get(`${API_URL}/products`);
+    const response = await axios.get(`${API_URL}/products/`);
     return response.data;
   } catch (error) {
     console.error('Error fetching products:', error);
@@ -35,7 +35,7 @@ export const fetchBestSellers = async (): Promise<Product[]> => {
 
 export const fetchCategories = async (): Promise<string[]> => {
   try {
-    const response = await axios.get<Product[]>(`${API_URL}/products`);
+    const response = await axios.get<Product[]>(`${API_URL}/products/`);
     const products = response.data;
     
     // Get unique categories
@@ -53,7 +53,7 @@ export const fetchCategories = async (): Promise<string[]> => {
 
 export const fetchTypes = async (): Promise<string[]> => {
   try {
-    const response = await axios.get<Product[]>(`${API_URL}/products`);
+    const response = await axios.get<Product[]>(`${API_URL}/products/`);
     const products = response.data;
     
     // Get unique types
@@ -71,7 +71,7 @@ export const fetchTypes = async (): Promise<string[]> => {
 
 export const fetchManufacturers = async (): Promise<string[]> => {
   try {
-    const response = await axios.get<Product[]>(`${API_URL}/products`);
+    const response = await axios.get<Product[]>(`${API_URL}/products/`);
     const products = response.data;
     
     // Get unique manufacturers
