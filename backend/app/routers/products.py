@@ -122,6 +122,24 @@ def search_products(
     
     return query.all()
 
+@router.get("/suggestions", response_model=List[str])
+def get_product_suggestions(
+    query: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Get up to 10 product name suggestions matching the query string.
+    """
+    suggestions = (
+        db.query(models.Product.name)
+        .filter(models.Product.name.ilike(f"%{query}%"))
+        .order_by(models.Product.sales.desc(), models.Product.name)
+        .limit(10)
+        .all()
+    )
+    # suggestions is a list of tuples [(name,), ...], so extract names
+    return [name for (name,) in suggestions]
+
 @router.get("/{product_id}", response_model=schemas.Product)
 def get_product_by_id(
     product_id: int,

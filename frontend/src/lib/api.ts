@@ -155,3 +155,16 @@ export const fetchRecentlyPurchased = async (days: number = 180): Promise<Produc
     return [];
   }
 };
+
+export const fetchProductSuggestions = async (query: string): Promise<string[]> => {
+  if (!query.trim()) return [];
+  try {
+    const response = await axios.get(`${API_URL}/products/suggestions`, {
+      params: { query }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching product suggestions:', error);
+    return [];
+  }
+};

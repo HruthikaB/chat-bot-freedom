@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Search, MessagesSquare, Heart, ShoppingCart, X, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { searchProducts } from "@/lib/api";
+import { searchProducts, fetchProductSuggestions } from "@/lib/api";
 import { Product } from '@/lib/types';
 
 type HeaderProps = {
@@ -23,14 +23,8 @@ const Header = ({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Popular search suggestions
-  const popularSearches = [
-    'Printer',
-    'Display',
-    'Circuit Board',
-    'Cash Drawer'
-  ];
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const debounceTimeout = useRef<any>(null);
 
   // Perform search function
   const performSearch = async (text: string) => {
@@ -60,10 +54,16 @@ const Header = ({
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchText(value);
-    if (value.trim()) {
-      performSearch(value);
-    } else {
+    // No search on change
+    if (!value.trim()) {
       onClearResults();
+    }
+  };
+
+  const handleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && searchText.trim()) {
+      await performSearch(searchText);
+      setShowSuggestions(false);
     }
   };
 
@@ -74,17 +74,23 @@ const Header = ({
     inputRef.current?.focus();
   };
   
+  // Fetch suggestions as user types
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
-    if (isFocused && searchText === '') {
-      timer = setTimeout(() => {
+    if (searchText.trim()) {
+      if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+      debounceTimeout.current = setTimeout(async () => {
+        const suggs = await fetchProductSuggestions(searchText);
+        setSuggestions(suggs);
         setShowSuggestions(true);
-      }, 300); // Reduced timeout for better UX
+      }, 250);
     } else {
+      setSuggestions([]);
       setShowSuggestions(false);
     }
-    return () => clearTimeout(timer);
-  }, [isFocused, searchText]);
+    return () => {
+      if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+    };
+  }, [searchText]);
 
   // Handle clicking a search suggestion
   const handleSuggestionClick = async (suggestion: string) => {
@@ -118,10 +124,9 @@ const Header = ({
             placeholder="Search products..."
             value={searchText}
             onChange={handleSearchChange}
+            onKeyDown={handleKeyDown}
             onFocus={() => setIsFocused(true)}
-            onBlur={() => {
-              setTimeout(() => setIsFocused(false), 200);
-            }}
+            onBlur={() => setTimeout(() => setIsFocused(false), 200)}
             className="pl-10 pr-10 py-2 w-full rounded-full bg-gray-100 border-none" 
           />
           {searchText && (
@@ -132,23 +137,18 @@ const Header = ({
               <X className="h-5 w-5" />
             </button>
           )}
-          
-          {isFocused && searchText === '' && (
-            <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg">
-              <div className="px-3 py-2 text-sm text-gray-500 border-b">Popular searches</div>
-              <div className="py-1">
-                {popularSearches.map((suggestion, index) => (
-                  <div 
-                    key={index}
-                    className="px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer"
-                    onClick={() => handleSuggestionClick(suggestion)}
-                    onMouseDown={(e) => e.preventDefault()}
-                  >
-                    {suggestion}
-                  </div>
-                ))}
-              </div>
-            </div>
+          {showSuggestions && suggestions.length > 0 && (
+            <ul className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-56 overflow-y-auto">
+              {suggestions.map((suggestion, index) => (
+                <li
+                  key={index}
+                  className="px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer"
+                  onMouseDown={() => handleSuggestionClick(suggestion)}
+                >
+                  {suggestion}
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       </div>
