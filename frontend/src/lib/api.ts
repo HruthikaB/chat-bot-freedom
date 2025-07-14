@@ -168,3 +168,29 @@ export const fetchProductSuggestions = async (query: string): Promise<string[]> 
     return [];
   }
 };
+
+export const fetchDetailedProductSuggestions = async (query: string, limit: number = 10): Promise<Product[]> => {
+  if (!query.trim()) return [];
+  try {
+    const response = await axios.get(`${API_URL}/products/suggestions-detailed`, {
+      params: { query, limit }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching detailed product suggestions:', error);
+    return [];
+  }
+};
+
+export const advancedSearchProducts = async (query: string, limit: number = 50): Promise<Product[]> => {
+  if (!query.trim()) return [];
+  try {
+    const response = await axios.get(`${API_URL}/products/advanced-search`, {
+      params: { query, limit }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error performing advanced search:', error);
+    return [];
+  }
+};
