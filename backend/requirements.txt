@@ -5,3 +5,14 @@ pymysql
 mysql-connector-python
 python-dotenv
 openai>=1.0.0
+SpeechRecognition
+pydub
+python-multipart
+Pillow
+opencv-python
+numpy
+scikit-image
+scikit-learn
+requests
+torch
+torchvision

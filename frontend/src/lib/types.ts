@@ -37,6 +37,17 @@ export interface Product {
   sales?: number;
 }
 
+export interface CartItem {
+  product: Product;
+  quantity: number;
+}
+
+export interface Cart {
+  items: CartItem[];
+  totalItems: number;
+  totalPrice: number;
+}
+
 export interface ChatResponse {
   user_message: string;
   extracted_filters: Record<string, any>;

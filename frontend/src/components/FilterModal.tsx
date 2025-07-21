@@ -89,7 +89,6 @@ const FilterModal: React.FC<FilterModalProps> = ({
   const [manufacturers, setManufacturers] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Track expanded state for each section
   const [expandedSections, setExpandedSections] = useState({
     sort: true,
     category: true,

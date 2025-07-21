@@ -6,6 +6,7 @@ import ProductsFilter from '@/components/ProductsFilter';
 import { Product } from '@/lib/types';
 import Filters from '@/components/Filters';
 import FilterModal, { FilterState } from '@/components/FilterModal';
+import { ImageSearchResponse } from '@/lib/api';
 
 const Index = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -13,7 +14,9 @@ const Index = () => {
   const [isChatMaximized, setIsChatMaximized] = useState(false);
   const [isFilterMaximized, setIsFilterMaximized] = useState(false);
   const [displayProducts, setDisplayProducts] = useState<Product[] | undefined>();
-  const [filterSource, setFilterSource] = useState<'chat' | 'filter' | 'search' | undefined>();
+  const [filterSource, setFilterSource] = useState<'chat' | 'filter' | 'search' | 'image' | undefined>();
+  const [imageSearchResults, setImageSearchResults] = useState<ImageSearchResponse['products'] | undefined>();
+  const [isImageSearchLoading, setIsImageSearchLoading] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterState>({
     sort: '',
@@ -36,11 +39,27 @@ const Index = () => {
   const handleSearchResults = (products: Product[]) => {
     setDisplayProducts(products);
     setFilterSource('search');
+    setImageSearchResults(undefined); // Clear image search results
+  };
+
+  const handleImageSearchResults = (imageResults: ImageSearchResponse['products']) => {
+    const products = imageResults.map(item => item.product);
+    setDisplayProducts(products);
+    setImageSearchResults(imageResults);
+    setFilterSource('image');
+    setIsImageSearchLoading(false);
+  };
+
+  const handleImageSearchStart = () => {
+    setIsImageSearchLoading(true);
+    setFilterSource('image');
   };
 
   const handleClearResults = () => {
     setDisplayProducts(undefined);
     setFilterSource(undefined);
+    setImageSearchResults(undefined);
+    setIsImageSearchLoading(false);
     setActiveFilters({
       sort: '',
       category: '',
@@ -61,6 +80,8 @@ const Index = () => {
         toggleChat={() => setIsChatOpen(true)} 
         toggleProductsFilter={() => setIsProductsFilterOpen(true)}
         onSearchResults={handleSearchResults}
+        onImageSearchResults={handleImageSearchResults}
+        onImageSearchStart={handleImageSearchStart}
         onClearResults={handleClearResults}
       />
       <div className="filters-container pt-24 px-6">
@@ -78,6 +99,8 @@ const Index = () => {
             displayProducts={displayProducts}
             filterSource={filterSource}
             activeFilters={activeFilters}
+            imageSearchResults={imageSearchResults}
+            isImageSearchLoading={isImageSearchLoading}
           />
         </div>
       </main>

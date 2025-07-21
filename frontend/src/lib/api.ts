@@ -1,4 +1,4 @@
-import { ChatResponse, ProductFilterParams, Product, Manufacturer } from "./types";
+import { ChatResponse, ProductFilterParams, Product } from "./types";
 import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -38,10 +38,9 @@ export const fetchCategories = async (): Promise<string[]> => {
     const response = await axios.get<Product[]>(`${API_URL}/products/`);
     const products = response.data;
     
-    // Get unique categories
     const categories = [...new Set(products
       .map(product => product.c_category)
-      .filter(category => category) // Remove null/undefined
+      .filter(category => category)
     )];
     
     return categories.sort();
@@ -56,10 +55,9 @@ export const fetchTypes = async (): Promise<string[]> => {
     const response = await axios.get<Product[]>(`${API_URL}/products/`);
     const products = response.data;
     
-    // Get unique types
     const types = [...new Set(products
       .map(product => product.c_type)
-      .filter(type => type) // Remove null/undefined
+      .filter(type => type)
     )];
     
     return types.sort();
@@ -74,10 +72,9 @@ export const fetchManufacturers = async (): Promise<string[]> => {
     const response = await axios.get<Product[]>(`${API_URL}/products/`);
     const products = response.data;
     
-    // Get unique manufacturers
     const manufacturers = [...new Set(products
       .map(product => product.c_manufacturer)
-      .filter(manufacturer => manufacturer) // Remove null/undefined
+      .filter(manufacturer => manufacturer)
     )];
     
     return manufacturers.sort();
@@ -109,6 +106,55 @@ export const searchProducts = async (searchText: string): Promise<Product[]> => 
   }
 };
 
+export interface ImageSearchResponse {
+  image_hash: string;
+  search_type: string;
+  threshold: number;
+  products: Array<{
+    product: Product;
+    similarity_score: number;
+    match_type: string;
+  }>;
+  total_results: number;
+  message: string;
+}
+
+export const searchProductsByImage = async (
+  imageFile: File
+): Promise<ImageSearchResponse> => {
+  try {
+    const formData = new FormData();
+    formData.append('file', imageFile);
+
+    const response = await axios.post(`${API_URL}/image-search/`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error searching products by image:', error);
+    throw error;
+  }
+};
+
+export const searchProductsByVoice = async (audioFile: File) => {
+  try {
+    const formData = new FormData();
+    formData.append('audio_file', audioFile);
+
+    const response = await axios.post(`${API_URL}/voice-search/`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error searching products by voice:', error);
+    throw error;
+  }
+};
+
 export const formatProduct = (product: Product, index: number): string => {
   let formattedProduct = `${index + 1}. ${product.name}\n`;
   formattedProduct += `Type: ${product.c_type || 'N/A'}\n`;
@@ -123,12 +169,10 @@ export const formatChatResponse = (data: ChatResponse): string => {
     return "I couldn't find any products matching your criteria. Could you try a different search?";
   }
   
-  // Take only the first 5 products
   const limitedProducts = data.products.slice(0, 5);
   
   let response = limitedProducts.map((product, index) => formatProduct(product, index)).join('\n\n');
   
-  // Add a note if there are more products
   if (data.products.length > 5) {
     response += `\n\n... and ${data.products.length - 5} more products available.`;
   }
@@ -192,5 +236,15 @@ export const advancedSearchProducts = async (query: string, limit: number = 50):
   } catch (error) {
     console.error('Error performing advanced search:', error);
     return [];
+  }
+};
+
+export const fetchProductById = async (productId: number): Promise<Product> => {
+  try {
+    const response = await axios.get(`${API_URL}/products/${productId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching product by ID:', error);
+    throw error;
   }
 };

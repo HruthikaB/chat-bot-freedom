@@ -304,9 +304,19 @@ def get_all_products(
     db: Session = Depends(get_db)
 ):
     """
-    Get all products
+    Get all active, sellable products that are shown in store
     """
-    products = db.query(models.Product).all()
+    products = (
+        db.query(models.Product)
+        .filter(
+            and_(
+                models.Product.inactive == 0,
+                models.Product.show_in_store == 1,
+                models.Product.if_sellable == 1
+            )
+        )
+        .all()
+    )
     return products
 
 @router.get("/recently-purchased", response_model=List[schemas.Product])
@@ -321,7 +331,14 @@ def get_recently_purchased(db: Session = Depends(get_db)):
     recent_products = (
         db.query(models.Product)
         .join(models.OrderProduct, models.Product.product_id == models.OrderProduct.product_id)
-        .filter(models.OrderProduct.created_at >= seven_days_ago)
+        .filter(
+            and_(
+                models.Product.inactive == 0,
+                models.Product.show_in_store == 1,
+                models.Product.if_sellable == 1,
+                models.OrderProduct.created_at >= seven_days_ago
+            )
+        )
         .group_by(models.Product.product_id)
         .order_by(desc(func.max(models.OrderProduct.created_at)))
         .all()
@@ -340,7 +357,14 @@ def get_best_sellers(db: Session = Depends(get_db)):
             models.Product.c_manufacturer,
             func.max(models.Product.sales).label('max_sales')
         )
-        .filter(models.Product.sales > 0)  # Only consider products with sales
+        .filter(
+            and_(
+                models.Product.inactive == 0,
+                models.Product.show_in_store == 1,
+                models.Product.if_sellable == 1,
+                models.Product.sales > 0  # Only consider products with sales
+            )
+        )
         .group_by(models.Product.c_manufacturer)
         .subquery()
     )
@@ -352,6 +376,13 @@ def get_best_sellers(db: Session = Depends(get_db)):
             best_seller_subquery,
             (models.Product.c_manufacturer == best_seller_subquery.c.c_manufacturer) &
             (models.Product.sales == best_seller_subquery.c.max_sales)
+        )
+        .filter(
+            and_(
+                models.Product.inactive == 0,
+                models.Product.show_in_store == 1,
+                models.Product.if_sellable == 1
+            )
         )
         .all()
     )
@@ -368,7 +399,16 @@ def search_products(
     max_price: Optional[Decimal] = None,
     db: Session = Depends(get_db),
 ):
-    query = db.query(models.Product)
+    query = (
+        db.query(models.Product)
+        .filter(
+            and_(
+                models.Product.inactive == 0,
+                models.Product.show_in_store == 1,
+                models.Product.if_sellable == 1
+            )
+        )
+    )
     
     if search:
         try:
@@ -416,7 +456,16 @@ def get_product_suggestions(
         conditions = parse_logical_query(query)
         
         # Start with base query
-        base_query = db.query(models.Product.name)
+        base_query = (
+            db.query(models.Product.name)
+            .filter(
+                and_(
+                    models.Product.inactive == 0,
+                    models.Product.show_in_store == 1,
+                    models.Product.if_sellable == 1
+                )
+            )
+        )
         
         # Apply logical filters
         filtered_query = apply_logical_filters(base_query, conditions)
@@ -437,10 +486,15 @@ def get_product_suggestions(
         suggestions = (
             db.query(models.Product.name)
             .filter(
-                or_(
-                    models.Product.name.ilike(f"%{query}%"),
-                    models.Product.sku_name.ilike(f"%{query}%"),
-                    models.Product.c_manufacturer.ilike(f"%{query}%")
+                and_(
+                    models.Product.inactive == 0,
+                    models.Product.show_in_store == 1,
+                    models.Product.if_sellable == 1,
+                    or_(
+                        models.Product.name.ilike(f"%{query}%"),
+                        models.Product.sku_name.ilike(f"%{query}%"),
+                        models.Product.c_manufacturer.ilike(f"%{query}%")
+                    )
                 )
             )
             .order_by(models.Product.sales.desc(), models.Product.name)
@@ -464,7 +518,16 @@ def get_detailed_product_suggestions(
         conditions = parse_logical_query(query)
         
         # Start with base query for full product data
-        base_query = db.query(models.Product)
+        base_query = (
+            db.query(models.Product)
+            .filter(
+                and_(
+                    models.Product.inactive == 0,
+                    models.Product.show_in_store == 1,
+                    models.Product.if_sellable == 1
+                )
+            )
+        )
         
         # Apply logical filters
         filtered_query = apply_logical_filters(base_query, conditions)
@@ -484,16 +547,21 @@ def get_detailed_product_suggestions(
         suggestions = (
             db.query(models.Product)
             .filter(
-                or_(
-                    models.Product.name.ilike(f"%{query}%"),
-                    models.Product.sku_name.ilike(f"%{query}%"),
-                    models.Product.c_manufacturer.ilike(f"%{query}%"),
-                    models.Product.c_category.ilike(f"%{query}%"),
-                    models.Product.c_type.ilike(f"%{query}%"),
-                    models.Product.w_oem.ilike(f"%{query}%"),
-                    models.Product.w_sku_category.ilike(f"%{query}%"),
-                    models.Product.w_primary_category.ilike(f"%{query}%"),
-                    models.Product.w_subcategory.ilike(f"%{query}%")
+                and_(
+                    models.Product.inactive == 0,
+                    models.Product.show_in_store == 1,
+                    models.Product.if_sellable == 1,
+                    or_(
+                        models.Product.name.ilike(f"%{query}%"),
+                        models.Product.sku_name.ilike(f"%{query}%"),
+                        models.Product.c_manufacturer.ilike(f"%{query}%"),
+                        models.Product.c_category.ilike(f"%{query}%"),
+                        models.Product.c_type.ilike(f"%{query}%"),
+                        models.Product.w_oem.ilike(f"%{query}%"),
+                        models.Product.w_sku_category.ilike(f"%{query}%"),
+                        models.Product.w_primary_category.ilike(f"%{query}%"),
+                        models.Product.w_subcategory.ilike(f"%{query}%")
+                    )
                 )
             )
             .order_by(models.Product.sales.desc(), models.Product.name)
@@ -532,7 +600,16 @@ def advanced_search_products(
         conditions = parse_logical_query(query)
         
         # Start with base query
-        base_query = db.query(models.Product)
+        base_query = (
+            db.query(models.Product)
+            .filter(
+                and_(
+                    models.Product.inactive == 0,
+                    models.Product.show_in_store == 1,
+                    models.Product.if_sellable == 1
+                )
+            )
+        )
         
         # Apply logical filters
         filtered_query = apply_logical_filters(base_query, conditions)
@@ -552,12 +629,17 @@ def advanced_search_products(
         products = (
             db.query(models.Product)
             .filter(
-                or_(
-                    models.Product.name.ilike(f"%{query}%"),
-                    models.Product.sku_name.ilike(f"%{query}%"),
-                    models.Product.c_manufacturer.ilike(f"%{query}%"),
-                    models.Product.c_category.ilike(f"%{query}%"),
-                    models.Product.c_type.ilike(f"%{query}%")
+                and_(
+                    models.Product.inactive == 0,
+                    models.Product.show_in_store == 1,
+                    models.Product.if_sellable == 1,
+                    or_(
+                        models.Product.name.ilike(f"%{query}%"),
+                        models.Product.sku_name.ilike(f"%{query}%"),
+                        models.Product.c_manufacturer.ilike(f"%{query}%"),
+                        models.Product.c_category.ilike(f"%{query}%"),
+                        models.Product.c_type.ilike(f"%{query}%")
+                    )
                 )
             )
             .order_by(models.Product.sales.desc(), models.Product.name)
@@ -572,9 +654,20 @@ def get_product_by_id(
     db: Session = Depends(get_db)
 ):
     """
-    Get a specific product by its ID
+    Get a specific product by its ID (only if active, sellable, and shown in store)
     """
-    product = db.query(models.Product).filter(models.Product.product_id == product_id).first()
+    product = (
+        db.query(models.Product)
+        .filter(
+            and_(
+                models.Product.product_id == product_id,
+                models.Product.inactive == 0,
+                models.Product.show_in_store == 1,
+                models.Product.if_sellable == 1
+            )
+        )
+        .first()
+    )
     if product is None:
         raise HTTPException(status_code=404, detail="Product not found")
     return product

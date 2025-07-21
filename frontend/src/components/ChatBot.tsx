@@ -174,6 +174,8 @@ const ChatBot: React.FC<ChatBotProps> = ({
       // Update products in parent component
       if (response.products && response.products.length > 0) {
         onProductsUpdate(response.products);
+      } else {
+        onProductsUpdate([]);
       }
     } catch (error) {
       console.error('Error sending message to backend:', error);

@@ -159,7 +159,7 @@ const ProductsFilter = ({ isOpen, onClose, onMaximizeChange, onProductsFiltered 
         setFilters({});
         setCurrentStep(0);
       }
-      setTimeout(scrollToBottom, 100); // Ensure scroll after render
+      setTimeout(scrollToBottom, 100);
     } else {
       setVisible(false);
       setIsMaximized(false);
@@ -233,7 +233,6 @@ const ProductsFilter = ({ isOpen, onClose, onMaximizeChange, onProductsFiltered 
         
         setMessages(prev => [...prev, nextQuestionMessage]);
       } else {
-        // Clean up filters before sending to API
         const apiFilters = {
           category: updatedFilters.category,
           manufacturer: updatedFilters.manufacturer,
@@ -242,7 +241,6 @@ const ProductsFilter = ({ isOpen, onClose, onMaximizeChange, onProductsFiltered 
           max_price: updatedFilters.max_price
         };
 
-        // Remove undefined values
         Object.keys(apiFilters).forEach(key => {
           if (apiFilters[key as keyof typeof apiFilters] === undefined) {
             delete apiFilters[key as keyof typeof apiFilters];
@@ -251,7 +249,6 @@ const ProductsFilter = ({ isOpen, onClose, onMaximizeChange, onProductsFiltered 
         
         const productsData = await fetchFilteredProducts(apiFilters);
         
-        // Pass filtered products to parent
         onProductsFiltered(productsData);
         
         const responseMessage = productsData.length === 0
@@ -268,11 +265,9 @@ const ProductsFilter = ({ isOpen, onClose, onMaximizeChange, onProductsFiltered 
         
         setMessages(prev => [...prev, productsMessage]);
         
-        // Reset for new search
         setCurrentStep(0);
         setFilters({});
         
-        // Add prompt for new search
         setTimeout(() => {
           setMessages(prev => [...prev, {
             id: prev.length + 1,

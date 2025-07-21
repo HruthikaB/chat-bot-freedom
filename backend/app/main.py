@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import Base, engine
-from app.routers import products, llm
+from app.routers import products, llm, voice_search, image_search
 
 app = FastAPI()
 
@@ -16,3 +16,16 @@ app.add_middleware(
 Base.metadata.create_all(bind=engine)
 app.include_router(products.router)
 app.include_router(llm.router)
+app.include_router(voice_search.router)
+app.include_router(image_search.router)
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services on startup"""
+    image_search.initialize_image_search()
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Clean up resources on shutdown"""
+    image_search.cleanup_image_search()
+
