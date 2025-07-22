@@ -1,22 +1,13 @@
-from fastapi import APIRouter, File, UploadFile, HTTPException, Form
-import os
-import json
+from fastapi import APIRouter, File, UploadFile, HTTPException
 import numpy as np
 from PIL import Image
 import requests
-from pydantic import BaseModel
-from typing import Optional
 import math
 from app.database import db_manager
 import io
-import base64
 from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.feature_extraction.text import TfidfVectorizer
-import re
 import torch
-import torchvision.transforms as transforms
 from torchvision.models import resnet50, ResNet50_Weights
-import cv2
 
 router = APIRouter(
     prefix="/image-search",
@@ -54,10 +45,8 @@ def load_image_model():
         
         preprocess = ResNet50_Weights.IMAGENET1K_V2.transforms()
         
-        print("Image model loaded successfully")
         return True
     except Exception as e:
-        print(f"Error loading image model: {e}")
         return False
 
 def download_image_from_url(url, timeout=10):
@@ -76,7 +65,6 @@ def download_image_from_url(url, timeout=10):
         
         return image_data
     except Exception as e:
-        print(f"Error downloading image from {url}: {e}")
         return None
 
 def extract_image_features(image_data):
@@ -101,7 +89,6 @@ def extract_image_features(image_data):
         
         return features
     except Exception as e:
-        print(f"Error extracting image features: {e}")
         return None
 
 def find_similar_images(query_features, num_results=6):
@@ -131,33 +118,26 @@ def find_similar_images(query_features, num_results=6):
         
         return results
     except Exception as e:
-        print(f"Error in image similarity search: {e}")
         return []
 
 def load_database_data(max_products=200):
     """Load data from MySQL database and create search index"""
     global product_info, data_loaded, tfidf_vectorizer, product_features, image_features
-    
-    print("Loading data from MySQL database...")
-    
+        
     try:
         if not db_manager.connect():
-            print("Failed to connect to database")
             data_loaded = False
             return
         
         products = db_manager.get_products_with_images(max_products)
         
         if not products:
-            print("No products found in database")
             data_loaded = False
             return
         
         product_info = []
         image_features_list = []
-        
-        print(f"Processing {len(products)} products from database...")
-        
+                
         for i, product in enumerate(products):
             image_path = product['image_path']
             if image_path and image_path.strip():
@@ -179,17 +159,13 @@ def load_database_data(max_products=200):
                         
                         if (i + 1) % 10 == 0:
                             print(f"Processed {i + 1}/{len(products)} products")
-        
-        print(f"Successfully loaded {len(product_info)} products with image features")
-        
+                
         if image_features_list:
             image_features = np.array(image_features_list)
-            print(f"Image features shape: {image_features.shape}")
         
         data_loaded = True
         
     except Exception as e:
-        print(f"Error loading data from database: {e}")
         import traceback
         traceback.print_exc()
         data_loaded = False

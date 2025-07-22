@@ -16,3 +16,4 @@ scikit-learn
 requests
 torch
 torchvision
+ffmpeg-python
