@@ -91,8 +91,6 @@ class ProductImage(Base):
     image_name = Column(String(100))
     image_path = Column(String(255))
     image_sort = Column(Integer)
-    image_type = Column(Integer)
-    image_path_qc = Column(String(255))
     
     product = relationship("Product", back_populates="images")
 

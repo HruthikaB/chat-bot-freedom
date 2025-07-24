@@ -299,7 +299,7 @@ def apply_logical_filters(query, conditions: dict):
     
     return query
 
-@router.get("/", response_model=List[schemas.Product])
+@router.get("/", response_model=dict)
 def get_all_products(
     db: Session = Depends(get_db)
 ):
@@ -317,7 +317,10 @@ def get_all_products(
         )
         .all()
     )
-    return products
+    total_results = len(products)
+    message = f"Found {total_results} products."
+    products_data = [schemas.Product.model_validate(p).model_dump() for p in products]
+    return {"products": products_data, "total_results": total_results, "message": message}
 
 @router.get("/recently-purchased", response_model=List[schemas.Product])
 def get_recently_purchased(db: Session = Depends(get_db)):
@@ -454,8 +457,31 @@ def get_product_suggestions(
     try:
         # Parse the logical query
         conditions = parse_logical_query(query)
-        
-        # Start with base query
+        # If the query is a simple keyword (not logical), search all relevant columns
+        if not any(op in query.upper() for op in ["AND", "OR", "IN", "NOT", "(", ")"]):
+            suggestions = (
+                db.query(models.Product.name)
+                .filter(
+                    and_(
+                        models.Product.inactive == 0,
+                        models.Product.show_in_store == 1,
+                        models.Product.if_sellable == 1,
+                        or_(
+                            models.Product.name.ilike(f"%{query}%"),
+                            models.Product.description.ilike(f"%{query}%"),
+                            models.Product.meta_description.ilike(f"%{query}%"),
+                            models.Product.meta_keyword.ilike(f"%{query}%"),
+                            models.Product.tag.ilike(f"%{query}%"),
+                            models.Product.sku_name.ilike(f"%{query}%")
+                        )
+                    )
+                )
+                .order_by(models.Product.sales.desc(), models.Product.name)
+                .limit(10)
+                .all()
+            )
+            return [name for (name,) in suggestions]
+        # Otherwise, use logical parsing and filters
         base_query = (
             db.query(models.Product.name)
             .filter(
@@ -466,23 +492,16 @@ def get_product_suggestions(
                 )
             )
         )
-        
-        # Apply logical filters
         filtered_query = apply_logical_filters(base_query, conditions)
-        
-        # Get suggestions with ordering
         suggestions = (
             filtered_query
             .order_by(models.Product.sales.desc(), models.Product.name)
             .limit(10)
             .all()
         )
-        
-        # Extract names from tuples
         return [name for (name,) in suggestions]
-        
     except Exception as e:
-        # Fallback to simple text search if parsing fails
+        # Fallback: search all relevant columns
         suggestions = (
             db.query(models.Product.name)
             .filter(
@@ -492,8 +511,11 @@ def get_product_suggestions(
                     models.Product.if_sellable == 1,
                     or_(
                         models.Product.name.ilike(f"%{query}%"),
-                        models.Product.sku_name.ilike(f"%{query}%"),
-                        models.Product.c_manufacturer.ilike(f"%{query}%")
+                        models.Product.description.ilike(f"%{query}%"),
+                        models.Product.meta_description.ilike(f"%{query}%"),
+                        models.Product.meta_keyword.ilike(f"%{query}%"),
+                        models.Product.tag.ilike(f"%{query}%"),
+                        models.Product.sku_name.ilike(f"%{query}%")
                     )
                 )
             )
@@ -516,8 +538,31 @@ def get_detailed_product_suggestions(
     try:
         # Parse the logical query
         conditions = parse_logical_query(query)
-        
-        # Start with base query for full product data
+        # If the query is a simple keyword (not logical), search all relevant columns
+        if not any(op in query.upper() for op in ["AND", "OR", "IN", "NOT", "(", ")"]):
+            suggestions = (
+                db.query(models.Product)
+                .filter(
+                    and_(
+                        models.Product.inactive == 0,
+                        models.Product.show_in_store == 1,
+                        models.Product.if_sellable == 1,
+                        or_(
+                            models.Product.name.ilike(f"%{query}%"),
+                            models.Product.description.ilike(f"%{query}%"),
+                            models.Product.meta_description.ilike(f"%{query}%"),
+                            models.Product.meta_keyword.ilike(f"%{query}%"),
+                            models.Product.tag.ilike(f"%{query}%"),
+                            models.Product.sku_name.ilike(f"%{query}%")
+                        )
+                    )
+                )
+                .order_by(models.Product.sales.desc(), models.Product.name)
+                .limit(limit)
+                .all()
+            )
+            return suggestions
+        # Otherwise, use logical parsing and filters
         base_query = (
             db.query(models.Product)
             .filter(
@@ -528,22 +573,16 @@ def get_detailed_product_suggestions(
                 )
             )
         )
-        
-        # Apply logical filters
         filtered_query = apply_logical_filters(base_query, conditions)
-        
-        # Get detailed suggestions with ordering
         suggestions = (
             filtered_query
             .order_by(models.Product.sales.desc(), models.Product.name)
             .limit(limit)
             .all()
         )
-        
         return suggestions
-        
     except Exception as e:
-        # Fallback to simple text search if parsing fails
+        # Fallback: search all relevant columns
         suggestions = (
             db.query(models.Product)
             .filter(
@@ -553,14 +592,11 @@ def get_detailed_product_suggestions(
                     models.Product.if_sellable == 1,
                     or_(
                         models.Product.name.ilike(f"%{query}%"),
-                        models.Product.sku_name.ilike(f"%{query}%"),
-                        models.Product.c_manufacturer.ilike(f"%{query}%"),
-                        models.Product.c_category.ilike(f"%{query}%"),
-                        models.Product.c_type.ilike(f"%{query}%"),
-                        models.Product.w_oem.ilike(f"%{query}%"),
-                        models.Product.w_sku_category.ilike(f"%{query}%"),
-                        models.Product.w_primary_category.ilike(f"%{query}%"),
-                        models.Product.w_subcategory.ilike(f"%{query}%")
+                        models.Product.description.ilike(f"%{query}%"),
+                        models.Product.meta_description.ilike(f"%{query}%"),
+                        models.Product.meta_keyword.ilike(f"%{query}%"),
+                        models.Product.tag.ilike(f"%{query}%"),
+                        models.Product.sku_name.ilike(f"%{query}%")
                     )
                 )
             )
@@ -635,10 +671,11 @@ def advanced_search_products(
                     models.Product.if_sellable == 1,
                     or_(
                         models.Product.name.ilike(f"%{query}%"),
-                        models.Product.sku_name.ilike(f"%{query}%"),
-                        models.Product.c_manufacturer.ilike(f"%{query}%"),
-                        models.Product.c_category.ilike(f"%{query}%"),
-                        models.Product.c_type.ilike(f"%{query}%")
+                        models.Product.description.ilike(f"%{query}%"),
+                        models.Product.meta_description.ilike(f"%{query}%"),
+                        models.Product.meta_keyword.ilike(f"%{query}%"),
+                        models.Product.tag.ilike(f"%{query}%"),
+                        models.Product.sku_name.ilike(f"%{query}%")
                     )
                 )
             )

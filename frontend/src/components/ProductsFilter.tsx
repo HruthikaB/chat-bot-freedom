@@ -310,7 +310,7 @@ const ProductsFilter = ({ isOpen, onClose, onMaximizeChange, onProductsFiltered 
     : currentStep === 1 
     ? ['Gilbarco', 'Wayne', 'Bennett','3M'] 
     : currentStep === 2
-    ? ['Accounting','Resale', 'Repair', 'Component']
+    ? ['Resale', 'Repair']
     : ['0-500', '500-1000', '1000-2000'];
 
   return (

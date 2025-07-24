@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import Results from '@/components/Results';
 import ChatBot from '@/components/ChatBot';
@@ -6,7 +6,7 @@ import ProductsFilter from '@/components/ProductsFilter';
 import { Product } from '@/lib/types';
 import Filters from '@/components/Filters';
 import FilterModal, { FilterState } from '@/components/FilterModal';
-import { ImageSearchResponse } from '@/lib/api';
+import { ImageSearchResponse, preloadFrequentlyUsedData } from '@/lib/api';
 
 const Index = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -25,6 +25,10 @@ const Index = () => {
     manufacturer: '',
     price: ''
   });
+
+  useEffect(() => {
+    preloadFrequentlyUsedData();
+  }, []);
 
   const handleChatProducts = (products: Product[]) => {
     setDisplayProducts(products);

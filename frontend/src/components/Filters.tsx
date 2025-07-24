@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Filter, ChevronDown, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { 
@@ -7,7 +7,7 @@ import {
   DropdownMenuContent, 
   DropdownMenuItem} from "@/components/ui/dropdown-menu";
 import { FilterState } from './FilterModal';
-import { fetchCategories, fetchTypes, fetchManufacturers } from '@/lib/api';
+import { useFilterOptions } from '@/contexts/FilterContext';
 
 interface FiltersProps {
   onClearFilters: () => void;
@@ -78,40 +78,10 @@ const Filters: React.FC<FiltersProps> = ({
   activeFilters,
   onFilterChange 
 }) => {
-  const [categories, setCategories] = useState<string[]>([]);
-  const [types, setTypes] = useState<string[]>([]);
-  const [manufacturers, setManufacturers] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState({
-    categories: true,
-    types: true,
-    manufacturers: true
-  });
+  const { filterOptions, isLoading } = useFilterOptions();
+  const { categories, types, manufacturers } = filterOptions;
 
-  useEffect(() => {
-    const loadFilterData = async () => {
-      try {
-        const [categoriesData, typesData, manufacturersData] = await Promise.all([
-          fetchCategories(),
-          fetchTypes(),
-          fetchManufacturers()
-        ]);
-        
-        setCategories(categoriesData);
-        setTypes(typesData);
-        setManufacturers(manufacturersData);
-      } catch (error) {
-        console.error('Error loading filter data:', error);
-      } finally {
-        setIsLoading({
-          categories: false,
-          types: false,
-          manufacturers: false
-        });
-      }
-    };
 
-    loadFilterData();
-  }, []);
 
   const sortOptions = [
     { label: "Featured", value: "" },
@@ -181,7 +151,7 @@ const Filters: React.FC<FiltersProps> = ({
           value={activeFilters.category}
           isActive={!!activeFilters.category}
           onSelect={(value) => handleFilterChange('category', value)}
-          isLoading={isLoading.categories}
+          isLoading={isLoading}
         />
         <FilterItem 
           label="Type" 
@@ -189,7 +159,7 @@ const Filters: React.FC<FiltersProps> = ({
           value={activeFilters.type}
           isActive={!!activeFilters.type}
           onSelect={(value) => handleFilterChange('type', value)}
-          isLoading={isLoading.types}
+          isLoading={isLoading}
         />
         <FilterItem 
           label="Manufacturer" 
@@ -197,7 +167,7 @@ const Filters: React.FC<FiltersProps> = ({
           value={activeFilters.manufacturer}
           isActive={!!activeFilters.manufacturer}
           onSelect={(value) => handleFilterChange('manufacturer', value)}
-          isLoading={isLoading.manufacturers}
+          isLoading={isLoading}
         />
         <FilterItem 
           label="Price" 

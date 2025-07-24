@@ -10,6 +10,7 @@ import Wishlist from "./pages/Wishlist";
 import NotFound from "./pages/NotFound";
 import { CartProvider } from "@/contexts/CartContext";
 import { WishlistProvider } from "@/contexts/WishlistContext";
+import { FilterProvider } from "@/contexts/FilterContext";
 
 const queryClient = new QueryClient();
 
@@ -21,14 +22,16 @@ const App = () => (
       <BrowserRouter>
         <CartProvider>
           <WishlistProvider>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/explore" element={<Index />} />
-              <Route path="/cart" element={<Cart />} />
-              <Route path="/wishlist" element={<Wishlist />} />
-              <Route path="/product/:id" element={<ProductDetails />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <FilterProvider>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/explore" element={<Index />} />
+                <Route path="/cart" element={<Cart />} />
+                <Route path="/wishlist" element={<Wishlist />} />
+                <Route path="/product/:id" element={<ProductDetails />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </FilterProvider>
           </WishlistProvider>
         </CartProvider>
       </BrowserRouter>

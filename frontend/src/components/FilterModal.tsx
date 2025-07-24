@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { X, Plus, Minus } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { fetchCategories, fetchTypes, fetchManufacturers } from '@/lib/api';
+import { useFilterOptions } from '@/contexts/FilterContext';
 
 export interface FilterState {
   sort: string;
@@ -84,10 +84,8 @@ const FilterModal: React.FC<FilterModalProps> = ({
   const [selectedManufacturer, setSelectedManufacturer] = useState(initialFilters?.manufacturer || "");
   const [selectedPrice, setSelectedPrice] = useState(initialFilters?.price || "");
 
-  const [categories, setCategories] = useState<string[]>([]);
-  const [types, setTypes] = useState<string[]>([]);
-  const [manufacturers, setManufacturers] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { filterOptions, isLoading } = useFilterOptions();
+  const { categories, types, manufacturers } = filterOptions;
 
   const [expandedSections, setExpandedSections] = useState({
     sort: true,
@@ -104,29 +102,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
     }));
   };
 
-  useEffect(() => {
-    const loadFilterData = async () => {
-      try {
-        const [categoriesData, typesData, manufacturersData] = await Promise.all([
-          fetchCategories(),
-          fetchTypes(),
-          fetchManufacturers()
-        ]);
-        
-        setCategories(categoriesData);
-        setTypes(typesData);
-        setManufacturers(manufacturersData);
-      } catch (error) {
-        console.error('Error loading filter data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
 
-    if (isOpen) {
-      loadFilterData();
-    }
-  }, [isOpen]);
 
   if (!isOpen) return null;
 

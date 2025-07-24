@@ -14,6 +14,16 @@ import { FilterState } from './FilterModal';
 import { useCart } from '@/contexts/CartContext';
 import { useWishlist } from '@/contexts/WishlistContext';
 import { useNavigate } from 'react-router-dom';
+import { 
+  getProductImageUrl, 
+  formatProductPrice, 
+  filterProductsByCategory,
+  filterProductsByType,
+  filterProductsByManufacturer,
+  filterProductsByPrice,
+  sortProducts,
+  ensureArray
+} from '@/lib/utils';
 
 interface ResultsProps {
   isChatMaximized?: boolean;
@@ -41,20 +51,8 @@ const ProductCard = ({ product, isBestSeller, isRecentlyPurchased, similaritySco
   const navigate = useNavigate();
   const quantityInCart = getItemQuantity(product.product_id);
   const inWishlist = isInWishlist(product.product_id);
-  const getImageUrl = () => {
-    if (product.images && product.images.length > 0 && product.images[0].image_path) {
-      return product.images[0].image_path;
-    }
-    return '/placeholder.svg';
-  };
-
-  const formatPrice = (price: string | number): string => {
-    if (typeof price === 'string') {
-      const numPrice = parseFloat(price);
-      return isNaN(numPrice) ? '0.00' : numPrice.toFixed(2);
-    }
-    return price.toFixed(2);
-  };
+  const imageUrl = getProductImageUrl(product);
+  const formattedPrice = formatProductPrice(product.price);
 
   return (
     <div className="relative bg-white rounded-lg overflow-hidden border border-gray-200 cursor-pointer hover:shadow-lg transition-shadow duration-200" onClick={() => navigate(`/product/${product.product_id}`)}>
@@ -76,7 +74,7 @@ const ProductCard = ({ product, isBestSeller, isRecentlyPurchased, similaritySco
 
       <div className="relative h-52 bg-gray-100">
         <img 
-          src={getImageUrl()} 
+          src={imageUrl} 
           alt={product.name} 
           className="w-full h-full object-cover"
         />
@@ -126,7 +124,7 @@ const ProductCard = ({ product, isBestSeller, isRecentlyPurchased, similaritySco
             <span className="text-gray-500 text-xs ml-1">(0)</span>
           </div>
           <div className="flex items-center justify-between mb-3">
-            <span className="font-medium">US${formatPrice(product.price)}</span>
+            <span className="font-medium">US${formattedPrice}</span>
             {quantityInCart > 0 && (
               <span className="text-xs bg-shop-purple text-white px-2 py-1 rounded-full">
                 {quantityInCart} in cart
@@ -161,22 +159,43 @@ const Results: React.FC<ResultsProps> = ({
         
         if (imageSearchResults && imageSearchResults.length > 0) {
           const imageProducts = imageSearchResults.map(item => item.product);
-          setProducts(imageProducts);
-          setFilteredProducts(imageProducts);
+          const safeImageProducts = ensureArray(imageProducts);
+          setProducts(safeImageProducts);
+          setFilteredProducts(safeImageProducts);
           setBestSellers(new Set());
           setRecentlyPurchased(new Set());
           setError(null);
-        } else {
-          const [productsData, bestSellersData, recentlyPurchasedData] = await Promise.all([
-            displayProducts ? Promise.resolve(displayProducts) : fetchProducts(),
+        } else if (displayProducts) {
+          // If displayProducts is provided, only load best sellers and recently purchased
+          const [bestSellersData, recentlyPurchasedData] = await Promise.all([
             fetchBestSellers(),
             fetchRecentlyPurchased()
           ]);
           
-          setProducts(productsData);
-          setFilteredProducts(productsData);
-          setBestSellers(new Set(bestSellersData.map(product => product.product_id)));
-          setRecentlyPurchased(new Set(recentlyPurchasedData.map(product => product.product_id)));
+          const safeBestSellersData = ensureArray(bestSellersData);
+          const safeRecentlyPurchasedData = ensureArray(recentlyPurchasedData);
+          
+          setProducts(displayProducts);
+          setFilteredProducts(displayProducts);
+          setBestSellers(new Set(safeBestSellersData.map(product => product.product_id)));
+          setRecentlyPurchased(new Set(safeRecentlyPurchasedData.map(product => product.product_id)));
+          setError(null);
+        } else {
+          // Only load all data if no specific products are provided
+          const [productsData, bestSellersData, recentlyPurchasedData] = await Promise.all([
+            fetchProducts(),
+            fetchBestSellers(),
+            fetchRecentlyPurchased()
+          ]);
+          
+          const safeProductsData = ensureArray(productsData);
+          const safeBestSellersData = ensureArray(bestSellersData);
+          const safeRecentlyPurchasedData = ensureArray(recentlyPurchasedData);
+          
+          setProducts(safeProductsData);
+          setFilteredProducts(safeProductsData);
+          setBestSellers(new Set(safeBestSellersData.map(product => product.product_id)));
+          setRecentlyPurchased(new Set(safeRecentlyPurchasedData.map(product => product.product_id)));
           setError(null);
         }
       } catch (err) {
@@ -193,80 +212,41 @@ const Results: React.FC<ResultsProps> = ({
   useEffect(() => {
     if (!activeFilters) return;
 
-    let filtered = [...products];
+    // Use utility functions for better performance and maintainability
+    const safeProducts = ensureArray(products);
+    let filtered = [...safeProducts];
 
+    // Apply filters using utility functions
     if (activeFilters.category) {
-      filtered = filtered.filter(product => 
-        product.c_category?.toLowerCase() === activeFilters.category.toLowerCase()
-      );
+      filtered = filterProductsByCategory(filtered, activeFilters.category);
     }
 
     if (activeFilters.type) {
-      filtered = filtered.filter(product => 
-        product.c_type?.toLowerCase() === activeFilters.type.toLowerCase()
-      );
+      filtered = filterProductsByType(filtered, activeFilters.type);
     }
 
     if (activeFilters.manufacturer) {
-      filtered = filtered.filter(product => 
-        product.c_manufacturer?.toLowerCase() === activeFilters.manufacturer.toLowerCase()
-      );
+      filtered = filterProductsByManufacturer(filtered, activeFilters.manufacturer);
     }
 
     if (activeFilters.price) {
-      filtered = filtered.filter(product => {
-        const price = typeof product.price === 'string' ? parseFloat(product.price) : product.price;
-        switch (activeFilters.price) {
-          case 'under_25':
-            return price < 25;
-          case '25_50':
-            return price >= 25 && price <= 50;
-          case '50_100':
-            return price >= 50 && price <= 100;
-          case 'over_100':
-            return price > 100;
-          default:
-            return true;
-        }
-      });
+      filtered = filterProductsByPrice(filtered, activeFilters.price);
     }
 
-    if (activeFilters.sort) {
-      filtered.sort((a, b) => {
-        const priceA = typeof a.price === 'string' ? parseFloat(a.price) : a.price;
-        const priceB = typeof b.price === 'string' ? parseFloat(b.price) : b.price;
-
-        switch (activeFilters.sort) {
-          case '':
-            return ((b.if_featured ? 1 : 0) - (a.if_featured ? 1 : 0));
-          case 'price_asc':
-            return priceA - priceB;
-          case 'price_desc':
-            return priceB - priceA;
-          case 'name_asc':
-            return (a.name || '').localeCompare(b.name || '');
-          case 'name_desc':
-            return (b.name || '').localeCompare(a.name || '');
-          case 'best_selling':
-            return (bestSellers.has(b.product_id) ? 1 : 0) - (bestSellers.has(a.product_id) ? 1 : 0);
-          case 'newest':
-            return (b.created_at || '').localeCompare(a.created_at || '');
-          default:
-            return 0;
-        }
-      });
-    } else {
-      filtered.sort((a, b) => ((b.if_featured ? 1 : 0) - (a.if_featured ? 1 : 0)));
-    }
+    // Apply sorting
+    const sortBy = activeFilters.sort || '';
+    filtered = sortProducts(filtered, sortBy, bestSellers);
 
     setFilteredProducts(filtered);
     setCurrentPage(1);
   }, [activeFilters, products, bestSellers]);
 
-  const totalPages = Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE);
+  // Ensure filteredProducts is always an array
+  const safeFilteredProducts = ensureArray(filteredProducts);
+  const totalPages = Math.ceil(safeFilteredProducts.length / PRODUCTS_PER_PAGE);
   const startIndex = (currentPage - 1) * PRODUCTS_PER_PAGE;
   const endIndex = startIndex + PRODUCTS_PER_PAGE;
-  const currentProducts = filteredProducts.slice(startIndex, endIndex);
+  const currentProducts = safeFilteredProducts.slice(startIndex, endIndex);
 
   const handlePageChange = (pageNumber: number) => {
     setCurrentPage(pageNumber);
@@ -329,7 +309,7 @@ const Results: React.FC<ResultsProps> = ({
   }
 
   // Handle empty search results
-  if (filterSource && filteredProducts.length === 0) {
+  if (filterSource && safeFilteredProducts.length === 0) {
     return (
       <div className={`py-6 transition-all duration-300 ${isChatMaximized ? 'mr-[380px]' : ''}`}>
         <div className="flex justify-between items-center mb-4">
@@ -381,7 +361,7 @@ const Results: React.FC<ResultsProps> = ({
             : 'All Products'}
         </h2>
         <p className="text-sm text-gray-500">
-          Showing {startIndex + 1} - {Math.min(endIndex, filteredProducts.length)} of {filteredProducts.length} products
+                      Showing {startIndex + 1} - {Math.min(endIndex, safeFilteredProducts.length)} of {safeFilteredProducts.length} products
         </p>
       </div>
       <div className={`product-grid grid gap-6 pb-6 ${

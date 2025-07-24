@@ -46,6 +46,15 @@ const Header = ({
   const [detailedSuggestions, setDetailedSuggestions] = useState<Product[]>([]);
   const debounceTimeout = useRef<any>(null);
   const justSelectedSuggestion = useRef(false);
+  const [showImageSearchPopup, setShowImageSearchPopup] = useState(false);
+  const [showCameraModal, setShowCameraModal] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [capturedPhoto, setCapturedPhoto] = useState<Blob | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isVideoReady, setIsVideoReady] = useState(false);
+
+  const RECORD_SECONDS = 4; // 3-5 seconds, set to 4 for balance
 
   const performSearch = async (text: string) => {
     if (!text.trim()) {
@@ -123,6 +132,8 @@ const Header = ({
       setShowVoicePopup(true);
       setRecordingTime(0);
       setIsRecordingStarted(false);
+      // Start recording immediately
+      await beginRecording();
     } catch (error) {
       console.error('Error starting recording:', error);
       setShowVoicePopup(false);
@@ -139,13 +150,6 @@ const Header = ({
       }
     }
   };
-
-  useEffect(() => {
-    if (showVoicePopup) {
-      beginRecording();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showVoicePopup]);
 
   const beginRecording = async () => {
     try {
@@ -191,28 +195,28 @@ const Header = ({
       mediaRecorder.onstop = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
         performVoiceSearch(audioBlob);
-        
         // Stop all tracks
         stream.getTracks().forEach(track => track.stop());
       };
       
-      mediaRecorder.start();
+      mediaRecorder.start(200); // timeslice: get first chunk quickly
       setIsRecording(true);
       setIsRecordingStarted(true);
-      
+      setRecordingTime(0);
+      let seconds = 0;
       const timer = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
-      
-      setTimeout(() => {
-        if (mediaRecorder.state === 'recording') {
-          mediaRecorder.stop();
-          setIsRecording(false);
-          setIsRecordingStarted(false);
+        seconds++;
+        setRecordingTime(seconds);
+        if (seconds >= RECORD_SECONDS) {
+          if (mediaRecorder.state === 'recording') {
+            mediaRecorder.requestData(); // flush buffer
+            mediaRecorder.stop();
+            setIsRecording(false);
+            setIsRecordingStarted(false);
+          }
           clearInterval(timer);
         }
-      }, 10000);
-      
+      }, 1000);
     } catch (error) {
       console.error('Error starting recording:', error);
       setShowVoicePopup(false);
@@ -313,12 +317,30 @@ const Header = ({
     fileInputRef.current?.click();
   };
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearchChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchText(value);
-    if (!value.trim()) {
-      onClearResults();
+    setShowSuggestions(!!value);
+
+    if (debounceTimeout.current) {
+      clearTimeout(debounceTimeout.current);
     }
+
+    if (!value.trim()) {
+      setSuggestions([]);
+      setDetailedSuggestions([]);
+      return;
+    }
+
+    debounceTimeout.current = setTimeout(async () => {
+      try {
+        // Always fetch suggestions for any input
+        const suggs = await fetchProductSuggestions(value);
+        setSuggestions(suggs);
+      } catch (error) {
+        setSuggestions([]);
+      }
+    }, 200);
   };
 
   const handleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -406,6 +428,82 @@ const Header = ({
     await performSearch(suggestion);
   };
 
+  // Image search icon click handler
+  const handleImageIconClick = () => {
+    setShowImageSearchPopup(true);
+  };
+
+  // Upload from device
+  const handleUploadFromDevice = () => {
+    setShowImageSearchPopup(false);
+    fileInputRef.current?.click();
+  };
+
+  // Camera logic
+  const handleTakePhotoWithCamera = async () => {
+    setShowImageSearchPopup(false);
+    setShowCameraModal(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      setCameraStream(stream);
+    } catch (err) {
+      alert('Unable to access camera. Please check permissions.');
+      setShowCameraModal(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showCameraModal && videoRef.current && cameraStream) {
+      videoRef.current.srcObject = cameraStream;
+      videoRef.current.play();
+      setIsVideoReady(false);
+    }
+    if (!showCameraModal && cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+      setIsVideoReady(false);
+    }
+  }, [showCameraModal, cameraStream]);
+
+  const handleVideoLoaded = () => {
+    setIsVideoReady(true);
+  };
+
+  const handleCapturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(blob => {
+          if (blob) {
+            setCapturedPhoto(blob);
+          }
+        }, 'image/jpeg');
+      }
+    }
+  };
+
+  const handleUseCapturedPhoto = () => {
+    if (capturedPhoto) {
+      setShowCameraModal(false);
+      setCapturedPhoto(null);
+      performImageSearch(new File([capturedPhoto], 'captured_photo.jpg', { type: 'image/jpeg' }));
+    }
+  };
+
+  const handleRetakePhoto = () => {
+    setCapturedPhoto(null);
+  };
+
+  const handleCloseCameraModal = () => {
+    setShowCameraModal(false);
+    setCapturedPhoto(null);
+  };
+
   return (
     <header className="flex items-center justify-between px-6 py-4 bg-shop-darkPurple border-b fixed top-0 left-0 right-0 z-50">
       <div className="flex items-center gap-8">
@@ -466,12 +564,6 @@ const Header = ({
                 </div>
               )}
             </div>
-            <div className="relative group">
-              <Focus
-                className="h-5 w-5 cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
-                onClick={handleFocusClick}
-              />
-            </div>
             
             {searchText && (
               <div className="relative group">
@@ -486,6 +578,12 @@ const Header = ({
                 </div>
               </div>
             )}
+            <div className="relative group">
+              <Focus
+                className="h-5 w-5 cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
+                onClick={handleImageIconClick}
+              />
+            </div>
           </div>
           
           <input
@@ -526,7 +624,7 @@ const Header = ({
       
       {/* Voice Search Popup */}
       {showVoicePopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 transition-opacity duration-200 opacity-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm transition-opacity duration-200 opacity-100">
           <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4 shadow-2xl relative animate-fade-in">
             {/* Close button */}
             <button
@@ -560,14 +658,127 @@ const Header = ({
                     </div>
                     <h3 className="text-xl font-semibold text-gray-800 mb-2">Recording...</h3>
                     <p className="text-gray-600 mb-4">Speak clearly into your microphone</p>
-                    <div className="flex space-x-2 justify-center">
+                    <div className="flex space-x-2 justify-center mb-2">
                       <div className="w-2 h-2 bg-red-500 rounded-full animate-bounce"></div>
                       <div className="w-2 h-2 bg-red-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
                       <div className="w-2 h-2 bg-red-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                     </div>
+                    <div className="text-lg font-bold text-gray-700">{RECORD_SECONDS - recordingTime}s</div>
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Image Search Popup */}
+      {showImageSearchPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm animate-fade-in">
+          <div
+            className="relative w-full max-w-xs sm:max-w-sm md:max-w-md mx-4 p-0"
+            style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
+          >
+            <div
+              className="bg-white rounded-2xl shadow-2xl px-6 py-8 flex flex-col items-center transition-all duration-300 ease-out border border-gray-100"
+              style={{ minWidth: 0 }}
+            >
+              <button
+                onClick={() => setShowImageSearchPopup(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-shop-purple transition-colors focus:outline-none focus:ring-2 focus:ring-shop-purple rounded-full"
+                aria-label="Close image search popup"
+              >
+                <X className="h-6 w-6" />
+              </button>
+              <h3 className="text-2xl font-bold mb-6 text-gray-900 tracking-tight text-center" style={{ letterSpacing: '-0.01em' }}>
+                Image Search
+              </h3>
+              <Button
+                className="w-full mb-4 py-3 text-base font-semibold rounded-xl bg-shop-purple hover:bg-shop-purple/90 text-white shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-shop-purple"
+                onClick={handleUploadFromDevice}
+              >
+                Upload from Device
+              </Button>
+              <Button
+                className="w-full py-3 text-base font-semibold rounded-xl bg-gray-100 hover:bg-gray-200 text-shop-purple border border-gray-200 shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-shop-purple"
+                onClick={handleTakePhotoWithCamera}
+              >
+                Take Photo with Camera
+              </Button>
+              <div className="mt-6 w-full flex flex-col items-center">
+                <span className="text-xs text-gray-400 text-center">We respect your privacy. Images are processed securely.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Camera Modal */}
+      {showCameraModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm animate-fade-in">
+          <div
+            className="relative w-full max-w-xs sm:max-w-sm md:max-w-md mx-4 p-0"
+            style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
+          >
+            <div
+              className="bg-white rounded-2xl shadow-2xl px-6 py-8 flex flex-col items-center transition-all duration-300 ease-out border border-gray-100"
+              style={{ minWidth: 0 }}
+            >
+              <button
+                onClick={handleCloseCameraModal}
+                className="absolute top-4 right-4 text-gray-400 hover:text-shop-purple transition-colors focus:outline-none focus:ring-2 focus:ring-shop-purple rounded-full"
+                aria-label="Close camera modal"
+              >
+                <X className="h-6 w-6" />
+              </button>
+              <h3 className="text-2xl font-bold mb-4 text-gray-900 tracking-tight text-center" style={{ letterSpacing: '-0.01em' }}>
+                Take Photo
+              </h3>
+              {/* Always render the hidden canvas for capture */}
+              <canvas ref={canvasRef} className="hidden" />
+              {!capturedPhoto ? (
+                <>
+                  <video
+                    ref={videoRef}
+                    className="w-full rounded-xl mb-4 border border-gray-200 shadow-sm aspect-video bg-gray-50"
+                    autoPlay
+                    playsInline
+                    onLoadedMetadata={handleVideoLoaded}
+                  />
+                  <Button
+                    className="w-full py-3 text-base font-semibold rounded-xl bg-shop-purple hover:bg-shop-purple/90 text-white shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-shop-purple"
+                    onClick={handleCapturePhoto}
+                    disabled={!isVideoReady}
+                  >
+                    {isVideoReady ? 'Capture' : 'Loading...'}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <img
+                    src={URL.createObjectURL(capturedPhoto)}
+                    alt="Captured"
+                    className="w-full rounded-xl mb-4 border border-gray-200 shadow-sm aspect-video object-cover"
+                  />
+                  <div className="flex w-full gap-2">
+                    <Button
+                      className="flex-1 py-3 text-base font-semibold rounded-xl bg-shop-purple hover:bg-shop-purple/90 text-white shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-shop-purple"
+                      onClick={handleUseCapturedPhoto}
+                    >
+                      Use Photo
+                    </Button>
+                    <Button
+                      className="flex-1 py-3 text-base font-semibold rounded-xl bg-gray-100 hover:bg-gray-200 text-shop-purple border border-gray-200 shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-shop-purple"
+                      variant="outline"
+                      onClick={handleRetakePhoto}
+                    >
+                      Retake
+                    </Button>
+                  </div>
+                </>
+              )}
+              <div className="mt-6 w-full flex flex-col items-center">
+                <span className="text-xs text-gray-400 text-center">We respect your privacy. Images are processed securely.</span>
+              </div>
             </div>
           </div>
         </div>

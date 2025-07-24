@@ -5,9 +5,7 @@ from decimal import Decimal
 class ProductImageBase(BaseModel):
     image_name: Optional[str] = None
     image_path: Optional[str] = None
-    image_path_qc: Optional[str] = None
     image_sort: Optional[int] = None
-    image_type: Optional[int] = None
 
 class ProductImage(ProductImageBase):
     image_id: int

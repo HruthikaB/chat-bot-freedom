@@ -7,33 +7,40 @@ export interface MessageType {
 }
 
 export interface ProductImage {
+  image_id: number;
+  image_name: string;
   image_path: string;
+  image_sort: number;
+  product_id: number;
 }
 
 export interface Product {
   product_id: number;
   name: string;
   description?: string;
-  price: number | string;
-  category?: string;
-  c_manufacturer?: string;
-  if_featured?: boolean;
-  images?: Array<{
-    image_id: number;
-    image_path: string;
-  }>;
-  rating?: number;
-  created_at?: string;
-  manufacturer: string;
-  product_type: string;
-  c_category?: string;
+  meta_description?: string;
+  meta_keyword?: string;
+  tag?: string;
+  product_type?: string;
+  price: string | number;
   c_type?: string;
+  c_category?: string;
+  c_manufacturer?: string;
+  c_product_group?: string;
+  if_featured?: boolean;
   if_sellable?: boolean;
   show_in_store?: number;
   status?: number;
   sku_name?: string;
-  w_description?: string;
-  w_oem?: string;
+  w_description?: string | null;
+  w_oem?: string | null;
+  w_weight?: string;
+  w_height?: string;
+  w_width?: string;
+  w_depth?: string;
+  images?: ProductImage[];
+  rating?: number;
+  date_added?: string;
   sales?: number;
 }
 
