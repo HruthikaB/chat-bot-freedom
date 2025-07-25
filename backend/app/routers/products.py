@@ -349,6 +349,30 @@ def get_recently_purchased(db: Session = Depends(get_db)):
 
     return recent_products
 
+@router.get("/recently-shipped", response_model=List[schemas.Product])
+def get_recently_shipped(db: Session = Depends(get_db)):
+    """
+    Get products that were shipped in the last 7 days
+    """
+    seven_days_ago = int(time.time()) - (7 * 24 * 60 * 60)
+
+    recent_shipped_products = (
+        db.query(models.Product)
+        .join(models.ShipmentProduct, models.Product.product_id == models.ShipmentProduct.product_id)
+        .filter(
+            and_(
+                models.Product.inactive == 0,
+                models.Product.show_in_store == 1,
+                models.Product.if_sellable == 1,
+                models.ShipmentProduct.created_at >= seven_days_ago
+            )
+        )
+        .group_by(models.Product.product_id)
+        .order_by(desc(func.max(models.ShipmentProduct.created_at)))
+        .all()
+    )
+    return recent_shipped_products
+
 @router.get("/best-sellers", response_model=List[schemas.Product])
 def get_best_sellers(db: Session = Depends(get_db)):
     """

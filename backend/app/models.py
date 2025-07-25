@@ -111,3 +111,14 @@ class OrderProduct(Base):
     created_at = Column(BigInteger)
     
     product = relationship("Product", back_populates="orders")
+
+class ShipmentProduct(Base):
+    __tablename__ = "shipment_product"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("product.product_id"))
+    shipment_id = Column(Integer, index=True)
+    quantity = Column(Integer, default=1)
+    created_at = Column(BigInteger)
+
+    product = relationship("Product")

@@ -214,6 +214,16 @@ export const fetchRecentlyPurchased = async (days: number = 180): Promise<Produc
   }
 };
 
+export const fetchRecentlyShipped = async (days: number = 7): Promise<Product[]> => {
+  try {
+    const response = await axios.get<Product[]>(`${API_URL}/products/recently-shipped`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching recently shipped products:', error);
+    return [];
+  }
+};
+
 export const fetchProductSuggestions = async (query: string): Promise<string[]> => {
   try {
     const response = await axios.get<string[]>(`${API_URL}/products/suggestions`, {

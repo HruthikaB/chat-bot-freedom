@@ -683,13 +683,13 @@ const Header = ({
               className="bg-white rounded-2xl shadow-2xl px-6 py-8 flex flex-col items-center transition-all duration-300 ease-out border border-gray-100"
               style={{ minWidth: 0 }}
             >
-              <button
-                onClick={() => setShowImageSearchPopup(false)}
+            <button
+              onClick={() => setShowImageSearchPopup(false)}
                 className="absolute top-4 right-4 text-gray-400 hover:text-shop-purple transition-colors focus:outline-none focus:ring-2 focus:ring-shop-purple rounded-full"
                 aria-label="Close image search popup"
-              >
-                <X className="h-6 w-6" />
-              </button>
+            >
+              <X className="h-6 w-6" />
+            </button>
               <h3 className="text-2xl font-bold mb-6 text-gray-900 tracking-tight text-center" style={{ letterSpacing: '-0.01em' }}>
                 Image Search
               </h3>
@@ -697,14 +697,14 @@ const Header = ({
                 className="w-full mb-4 py-3 text-base font-semibold rounded-xl bg-shop-purple hover:bg-shop-purple/90 text-white shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-shop-purple"
                 onClick={handleUploadFromDevice}
               >
-                Upload from Device
-              </Button>
+              Upload from Device
+            </Button>
               <Button
                 className="w-full py-3 text-base font-semibold rounded-xl bg-gray-100 hover:bg-gray-200 text-shop-purple border border-gray-200 shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-shop-purple"
                 onClick={handleTakePhotoWithCamera}
               >
-                Take Photo with Camera
-              </Button>
+              Take Photo with Camera
+            </Button>
               <div className="mt-6 w-full flex flex-col items-center">
                 <span className="text-xs text-gray-400 text-center">We respect your privacy. Images are processed securely.</span>
               </div>
@@ -723,20 +723,20 @@ const Header = ({
               className="bg-white rounded-2xl shadow-2xl px-6 py-8 flex flex-col items-center transition-all duration-300 ease-out border border-gray-100"
               style={{ minWidth: 0 }}
             >
-              <button
-                onClick={handleCloseCameraModal}
+            <button
+              onClick={handleCloseCameraModal}
                 className="absolute top-4 right-4 text-gray-400 hover:text-shop-purple transition-colors focus:outline-none focus:ring-2 focus:ring-shop-purple rounded-full"
                 aria-label="Close camera modal"
-              >
-                <X className="h-6 w-6" />
-              </button>
+            >
+              <X className="h-6 w-6" />
+            </button>
               <h3 className="text-2xl font-bold mb-4 text-gray-900 tracking-tight text-center" style={{ letterSpacing: '-0.01em' }}>
                 Take Photo
               </h3>
-              {/* Always render the hidden canvas for capture */}
-              <canvas ref={canvasRef} className="hidden" />
-              {!capturedPhoto ? (
-                <>
+            {/* Always render the hidden canvas for capture */}
+            <canvas ref={canvasRef} className="hidden" />
+            {!capturedPhoto ? (
+              <>
                   <video
                     ref={videoRef}
                     className="w-full rounded-xl mb-4 border border-gray-200 shadow-sm aspect-video bg-gray-50"
@@ -749,33 +749,33 @@ const Header = ({
                     onClick={handleCapturePhoto}
                     disabled={!isVideoReady}
                   >
-                    {isVideoReady ? 'Capture' : 'Loading...'}
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <img
-                    src={URL.createObjectURL(capturedPhoto)}
-                    alt="Captured"
+                  {isVideoReady ? 'Capture' : 'Loading...'}
+                </Button>
+              </>
+            ) : (
+              <>
+                <img
+                  src={URL.createObjectURL(capturedPhoto)}
+                  alt="Captured"
                     className="w-full rounded-xl mb-4 border border-gray-200 shadow-sm aspect-video object-cover"
-                  />
-                  <div className="flex w-full gap-2">
+                />
+                <div className="flex w-full gap-2">
                     <Button
                       className="flex-1 py-3 text-base font-semibold rounded-xl bg-shop-purple hover:bg-shop-purple/90 text-white shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-shop-purple"
                       onClick={handleUseCapturedPhoto}
                     >
-                      Use Photo
-                    </Button>
+                    Use Photo
+                  </Button>
                     <Button
                       className="flex-1 py-3 text-base font-semibold rounded-xl bg-gray-100 hover:bg-gray-200 text-shop-purple border border-gray-200 shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-shop-purple"
                       variant="outline"
                       onClick={handleRetakePhoto}
                     >
-                      Retake
-                    </Button>
-                  </div>
-                </>
-              )}
+                    Retake
+                  </Button>
+                </div>
+              </>
+            )}
               <div className="mt-6 w-full flex flex-col items-center">
                 <span className="text-xs text-gray-400 text-center">We respect your privacy. Images are processed securely.</span>
               </div>

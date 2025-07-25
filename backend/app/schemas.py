@@ -63,3 +63,13 @@ class ChatbotMessageOut(ChatbotMessageBase):
 
     class Config:
         from_attributes = True
+
+class ShipmentProduct(BaseModel):
+    id: int
+    product_id: int
+    shipment_id: int
+    quantity: int
+    created_at: int
+
+    class Config:
+        from_attributes = True

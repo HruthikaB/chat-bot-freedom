@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Heart, Search, ChevronLeft, ChevronRight, ShoppingCart, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Product } from '@/lib/types';
-import { fetchProducts, fetchBestSellers, fetchRecentlyPurchased } from '@/lib/api';
+import { fetchProducts, fetchBestSellers, fetchRecentlyPurchased, fetchRecentlyShipped } from '@/lib/api';
 import { FilterState } from './FilterModal';
 import { useCart } from '@/contexts/CartContext';
 import { useWishlist } from '@/contexts/WishlistContext';
@@ -40,10 +40,11 @@ interface ResultsProps {
 
 const PRODUCTS_PER_PAGE = 15;
 
-const ProductCard = ({ product, isBestSeller, isRecentlyPurchased, similarityScore }: { 
+const ProductCard = ({ product, isBestSeller, isRecentlyPurchased, isRecentlyShipped, similarityScore }: { 
   product: Product; 
   isBestSeller: boolean;
   isRecentlyPurchased: boolean;
+  isRecentlyShipped: boolean;
   similarityScore?: number;
 }) => {
   const { addToCart, getItemQuantity } = useCart();
@@ -61,13 +62,18 @@ const ProductCard = ({ product, isBestSeller, isRecentlyPurchased, similaritySco
           Featured
         </div>
       )}
+      {isRecentlyShipped && (
+        <div className={`absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded z-10`}>
+          Recently Shipped
+        </div>
+      )}
       {isRecentlyPurchased && (
-        <div className="absolute top-2 left-2 bg-green-600 text-white text-xs px-2 py-1 rounded z-10">
+        <div className={`absolute ${isRecentlyShipped ? 'top-10' : 'top-2'} left-2 bg-green-600 text-white text-xs px-2 py-1 rounded z-10`}>
           Recently Purchased
         </div>
       )}
       {isBestSeller && (
-        <div className={`absolute ${isRecentlyPurchased ? 'top-10' : 'top-2'} left-2 bg-shop-purple text-white text-xs px-2 py-1 rounded z-10`}>
+        <div className={`absolute ${isRecentlyShipped || isRecentlyPurchased ? 'top-18' : 'top-2'} left-2 bg-shop-purple text-white text-xs px-2 py-1 rounded z-10`}>
           Best Seller
         </div>
       )}
@@ -151,62 +157,60 @@ const Results: React.FC<ResultsProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [bestSellers, setBestSellers] = useState<Set<number>>(new Set());
   const [recentlyPurchased, setRecentlyPurchased] = useState<Set<number>>(new Set());
+  const [recentlyShipped, setRecentlyShipped] = useState<Set<number>>(new Set());
+  const hasLoadedRef = useRef(false);
 
+  // Only load all data on mount (reload)
   useEffect(() => {
+    if (hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
     const loadData = async () => {
+      setLoading(true);
       try {
-        setLoading(true);
-        
-        if (imageSearchResults && imageSearchResults.length > 0) {
-          const imageProducts = imageSearchResults.map(item => item.product);
-          const safeImageProducts = ensureArray(imageProducts);
-          setProducts(safeImageProducts);
-          setFilteredProducts(safeImageProducts);
-          setBestSellers(new Set());
-          setRecentlyPurchased(new Set());
-          setError(null);
-        } else if (displayProducts) {
-          // If displayProducts is provided, only load best sellers and recently purchased
-          const [bestSellersData, recentlyPurchasedData] = await Promise.all([
-            fetchBestSellers(),
-            fetchRecentlyPurchased()
-          ]);
-          
-          const safeBestSellersData = ensureArray(bestSellersData);
-          const safeRecentlyPurchasedData = ensureArray(recentlyPurchasedData);
-          
-          setProducts(displayProducts);
-          setFilteredProducts(displayProducts);
-          setBestSellers(new Set(safeBestSellersData.map(product => product.product_id)));
-          setRecentlyPurchased(new Set(safeRecentlyPurchasedData.map(product => product.product_id)));
-          setError(null);
-        } else {
-          // Only load all data if no specific products are provided
-          const [productsData, bestSellersData, recentlyPurchasedData] = await Promise.all([
-            fetchProducts(),
-            fetchBestSellers(),
-            fetchRecentlyPurchased()
-          ]);
-          
-          const safeProductsData = ensureArray(productsData);
-          const safeBestSellersData = ensureArray(bestSellersData);
-          const safeRecentlyPurchasedData = ensureArray(recentlyPurchasedData);
-          
-          setProducts(safeProductsData);
-          setFilteredProducts(safeProductsData);
-          setBestSellers(new Set(safeBestSellersData.map(product => product.product_id)));
-          setRecentlyPurchased(new Set(safeRecentlyPurchasedData.map(product => product.product_id)));
-          setError(null);
-        }
+        const [productsData, bestSellersData, recentlyPurchasedData, recentlyShippedData] = await Promise.all([
+          fetchProducts(),
+          fetchBestSellers(),
+          fetchRecentlyPurchased(),
+          fetchRecentlyShipped()
+        ]);
+        const safeProductsData = ensureArray(productsData);
+        const safeBestSellersData = ensureArray(bestSellersData);
+        const safeRecentlyPurchasedData = ensureArray(recentlyPurchasedData);
+        const safeRecentlyShippedData = ensureArray(recentlyShippedData);
+        setProducts(safeProductsData);
+        setFilteredProducts(safeProductsData);
+        setBestSellers(new Set(safeBestSellersData.map(product => product.product_id)));
+        setRecentlyPurchased(new Set(safeRecentlyPurchasedData.map(product => product.product_id)));
+        setRecentlyShipped(new Set(safeRecentlyShippedData.map(product => product.product_id)));
+        setError(null);
       } catch (err) {
         setError('Failed to load products. Please try again later.');
-        console.error('Error loading data:', err);
       } finally {
         setLoading(false);
       }
     };
-
     loadData();
+  }, []);
+
+  // Handle dynamic updates for displayProducts or imageSearchResults (e.g. from search/filter/image)
+  useEffect(() => {
+    if (imageSearchResults && imageSearchResults.length > 0) {
+      const imageProducts = imageSearchResults.map(item => item.product);
+      const safeImageProducts = ensureArray(imageProducts);
+      setProducts(safeImageProducts);
+      setFilteredProducts(safeImageProducts);
+      setBestSellers(new Set());
+      setRecentlyPurchased(new Set());
+      setRecentlyShipped(new Set());
+      setError(null);
+      return;
+    }
+    if (displayProducts) {
+      setProducts(displayProducts);
+      setFilteredProducts(displayProducts);
+      setError(null);
+      return;
+    }
   }, [displayProducts, imageSearchResults]);
 
   useEffect(() => {
@@ -372,13 +376,15 @@ const Results: React.FC<ResultsProps> = ({
         {currentProducts.map((product) => {
           const imageResult = imageSearchResults?.find(item => item.product.product_id === product.product_id);
           const similarityScore = imageResult?.similarity_score;
-          
+          // If image search, tags are not relevant, so pass false
+          const isRecentlyShipped = imageSearchResults ? false : recentlyShipped.has(product.product_id);
           return (
             <ProductCard 
               key={product.product_id} 
               product={product} 
               isBestSeller={bestSellers.has(product.product_id)}
               isRecentlyPurchased={recentlyPurchased.has(product.product_id)}
+              isRecentlyShipped={isRecentlyShipped}
               similarityScore={similarityScore}
             />
           );
