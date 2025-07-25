@@ -14,9 +14,9 @@ import { FilterState } from './FilterModal';
 import { useCart } from '@/contexts/CartContext';
 import { useWishlist } from '@/contexts/WishlistContext';
 import { useNavigate } from 'react-router-dom';
-import { 
-  getProductImageUrl, 
-  formatProductPrice, 
+import {
+  getProductImageUrl,
+  formatProductPrice,
   filterProductsByCategory,
   filterProductsByType,
   filterProductsByManufacturer,
@@ -40,8 +40,8 @@ interface ResultsProps {
 
 const PRODUCTS_PER_PAGE = 15;
 
-const ProductCard = ({ product, isBestSeller, isRecentlyPurchased, isRecentlyShipped, similarityScore }: { 
-  product: Product; 
+const ProductCard = ({ product, isBestSeller, isRecentlyPurchased, isRecentlyShipped, similarityScore }: {
+  product: Product;
   isBestSeller: boolean;
   isRecentlyPurchased: boolean;
   isRecentlyShipped: boolean;
@@ -79,18 +79,18 @@ const ProductCard = ({ product, isBestSeller, isRecentlyPurchased, isRecentlyShi
       )}
 
       <div className="relative h-52 bg-gray-100">
-        <img 
-          src={imageUrl} 
-          alt={product.name} 
+        <img
+          src={imageUrl}
+          alt={product.name}
           className="w-full h-full object-cover"
         />
         <div className="absolute bottom-2 right-2 flex flex-col gap-2">
           <Button variant="outline" size="icon" className="h-7 w-7 bg-white rounded-full">
             <Search className="h-3.5 w-3.5" />
           </Button>
-          <Button 
-            variant="outline" 
-            size="icon" 
+          <Button
+            variant="outline"
+            size="icon"
             className={`h-7 w-7 bg-white rounded-full ${inWishlist ? 'text-red-500' : ''}`}
             onClick={(e) => {
               e.stopPropagation();
@@ -103,9 +103,9 @@ const ProductCard = ({ product, isBestSeller, isRecentlyPurchased, isRecentlyShi
           >
             <Heart className={`h-3.5 w-3.5 ${inWishlist ? 'fill-red-500 text-red-500' : ''}`} />
           </Button>
-          <Button 
-            variant="outline" 
-            size="icon" 
+          <Button
+            variant="outline"
+            size="icon"
             className="h-7 w-7 bg-white rounded-full hover:bg-shop-purple hover:text-white"
             onClick={(e) => {
               e.stopPropagation();
@@ -116,34 +116,34 @@ const ProductCard = ({ product, isBestSeller, isRecentlyPurchased, isRecentlyShi
           </Button>
         </div>
       </div>
-              <div className="p-3">
-          <div className="text-sm mb-1">
-            <span className="font-medium">{product.c_manufacturer}</span>
-          </div>
-          <h3 className="font-medium text-sm mb-1">{product.name}</h3>
-          <div className="flex items-center mb-1">
-            <div className="flex">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="h-5 w-5 stroke-gray-400" />
-                    ))}
-                  </div>
-            <span className="text-gray-500 text-xs ml-1">(0)</span>
-          </div>
-          <div className="flex items-center justify-between mb-3">
-            <span className="font-medium">US${formattedPrice}</span>
-            {quantityInCart > 0 && (
-              <span className="text-xs bg-shop-purple text-white px-2 py-1 rounded-full">
-                {quantityInCart} in cart
-              </span>
-            )}
-          </div>
+      <div className="p-3">
+        <div className="text-sm mb-1">
+          <span className="font-medium">{product.c_manufacturer}</span>
         </div>
+        <h3 className="font-medium text-sm mb-1">{product.name}</h3>
+        <div className="flex items-center mb-1">
+          <div className="flex">
+            {[...Array(5)].map((_, i) => (
+              <Star key={i} className="h-5 w-5 stroke-gray-400" />
+            ))}
+          </div>
+          <span className="text-gray-500 text-xs ml-1">(0)</span>
+        </div>
+        <div className="flex items-center justify-between mb-3">
+          <span className="font-medium">US${formattedPrice}</span>
+          {quantityInCart > 0 && (
+            <span className="text-xs bg-shop-purple text-white px-2 py-1 rounded-full">
+              {quantityInCart} in cart
+            </span>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
 
-const Results: React.FC<ResultsProps> = ({ 
-  isChatMaximized = false, 
+const Results: React.FC<ResultsProps> = ({
+  isChatMaximized = false,
   displayProducts,
   filterSource,
   activeFilters,
@@ -159,6 +159,7 @@ const Results: React.FC<ResultsProps> = ({
   const [recentlyPurchased, setRecentlyPurchased] = useState<Set<number>>(new Set());
   const [recentlyShipped, setRecentlyShipped] = useState<Set<number>>(new Set());
   const hasLoadedRef = useRef(false);
+  const [shouldShowAllProducts, setShouldShowAllProducts] = useState(false);
 
   // Only load all data on mount (reload)
   useEffect(() => {
@@ -214,38 +215,83 @@ const Results: React.FC<ResultsProps> = ({
   }, [displayProducts, imageSearchResults]);
 
   useEffect(() => {
-    if (!activeFilters) return;
+    if (displayProducts === undefined && filterSource === undefined && hasLoadedRef.current) {
+      setShouldShowAllProducts(true);
+      const loadData = async () => {
+        setLoading(true);
+        try {
+          const [productsData, bestSellersData, recentlyPurchasedData, recentlyShippedData] = await Promise.all([
+            fetchProducts(),
+            fetchBestSellers(),
+            fetchRecentlyPurchased(),
+            fetchRecentlyShipped()
+          ]);
+          const safeProductsData = ensureArray(productsData);
+          const safeBestSellersData = ensureArray(bestSellersData);
+          const safeRecentlyPurchasedData = ensureArray(recentlyPurchasedData);
+          const safeRecentlyShippedData = ensureArray(recentlyShippedData);
+          setProducts(safeProductsData);
+          setFilteredProducts(safeProductsData);
+          setBestSellers(new Set(safeBestSellersData.map(product => product.product_id)));
+          setRecentlyPurchased(new Set(safeRecentlyPurchasedData.map(product => product.product_id)));
+          setRecentlyShipped(new Set(safeRecentlyShippedData.map(product => product.product_id)));
+          setError(null);
+        } catch (err) {
+          setError('Failed to load products. Please try again later.');
+        } finally {
+          setLoading(false);
+        }
+      };
+      loadData();
+    } else if (displayProducts !== undefined || filterSource !== undefined) {
+      setShouldShowAllProducts(false);
+    }
+  }, [displayProducts, filterSource]);
 
-    // Use utility functions for better performance and maintainability
+  useEffect(() => {
     const safeProducts = ensureArray(products);
     let filtered = [...safeProducts];
 
-    // Apply filters using utility functions
-    if (activeFilters.category) {
-      filtered = filterProductsByCategory(filtered, activeFilters.category);
+    if (shouldShowAllProducts) {
+      setFilteredProducts(safeProducts);
+      setCurrentPage(1);
+      return;
     }
 
-    if (activeFilters.type) {
-      filtered = filterProductsByType(filtered, activeFilters.type);
-    }
+    if (activeFilters) {
+      const hasActiveFilters = activeFilters.category || activeFilters.type ||
+        activeFilters.manufacturer || activeFilters.price || activeFilters.sort;
 
-    if (activeFilters.manufacturer) {
-      filtered = filterProductsByManufacturer(filtered, activeFilters.manufacturer);
-    }
+      if (hasActiveFilters) {
+        if (activeFilters.category) {
+          filtered = filterProductsByCategory(filtered, activeFilters.category);
+        }
 
-    if (activeFilters.price) {
-      filtered = filterProductsByPrice(filtered, activeFilters.price);
-    }
+        if (activeFilters.type) {
+          filtered = filterProductsByType(filtered, activeFilters.type);
+        }
 
-    // Apply sorting
-    const sortBy = activeFilters.sort || '';
-    filtered = sortProducts(filtered, sortBy, bestSellers);
+        if (activeFilters.manufacturer) {
+          filtered = filterProductsByManufacturer(filtered, activeFilters.manufacturer);
+        }
+
+        if (activeFilters.price) {
+          filtered = filterProductsByPrice(filtered, activeFilters.price);
+        }
+
+        const sortBy = activeFilters.sort || '';
+        filtered = sortProducts(filtered, sortBy);
+      } else {
+        filtered = [...safeProducts];
+      }
+    } else {
+      filtered = [...safeProducts];
+    }
 
     setFilteredProducts(filtered);
     setCurrentPage(1);
-  }, [activeFilters, products, bestSellers]);
+  }, [activeFilters, products, shouldShowAllProducts]);
 
-  // Ensure filteredProducts is always an array
   const safeFilteredProducts = ensureArray(filteredProducts);
   const totalPages = Math.ceil(safeFilteredProducts.length / PRODUCTS_PER_PAGE);
   const startIndex = (currentPage - 1) * PRODUCTS_PER_PAGE;
@@ -318,15 +364,15 @@ const Results: React.FC<ResultsProps> = ({
       <div className={`py-6 transition-all duration-300 ${isChatMaximized ? 'mr-[380px]' : ''}`}>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-medium">
-            {filterSource === 'chat' 
-              ? 'Chat Results' 
-              : filterSource === 'filter' 
-              ? 'Filtered Products' 
-              : filterSource === 'image'
-              ? 'Image Search Results'
-              : filterSource === 'search'
-              ? 'Search Results'
-              : 'Results'}
+            {filterSource === 'chat'
+              ? 'Chat Results'
+              : filterSource === 'filter'
+                ? 'Filtered Products'
+                : filterSource === 'image'
+                  ? 'Image Search Results'
+                  : filterSource === 'search'
+                    ? 'Search Results'
+                    : 'Results'}
           </h2>
         </div>
         <div className="flex flex-col justify-center items-center min-h-[400px]">
@@ -336,15 +382,15 @@ const Results: React.FC<ResultsProps> = ({
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
             <p className="text-gray-500">
-              {filterSource === 'image' 
+              {filterSource === 'image'
                 ? "We couldn't find any products similar to your image. Try uploading a different image or use text search instead."
                 : filterSource === 'search'
-                ? "No products match your search criteria. Try different keywords or browse our categories."
-                : filterSource === 'filter'
-                ? "No products match your filter criteria. Try adjusting your filters or browse all products."
-                : filterSource === 'chat'
-                ? "No products found based on your request. Try rephrasing your question or browse our products."
-                : "No products available. Please try again later."}
+                  ? "No products match your search criteria. Try different keywords or browse our categories."
+                  : filterSource === 'filter'
+                    ? "No products match your filter criteria. Try adjusting your filters or browse all products."
+                    : filterSource === 'chat'
+                      ? "No products found based on your request. Try rephrasing your question or browse our products."
+                      : "No products available. Please try again later."}
             </p>
           </div>
         </div>
@@ -356,32 +402,31 @@ const Results: React.FC<ResultsProps> = ({
     <div className={`py-6 transition-all duration-300 ${isChatMaximized ? 'mr-[380px]' : ''}`}>
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-medium">
-          {filterSource === 'chat' 
-            ? 'Chat Results' 
-            : filterSource === 'filter' 
-            ? 'Filtered Products' 
-            : filterSource === 'image'
-            ? 'Image Search Results'
-            : 'All Products'}
+          {filterSource === 'chat'
+            ? 'Chat Results'
+            : filterSource === 'filter'
+              ? 'Filtered Products'
+              : filterSource === 'image'
+                ? 'Image Search Results'
+                : 'All Products'}
         </h2>
         <p className="text-sm text-gray-500">
-                      Showing {startIndex + 1} - {Math.min(endIndex, safeFilteredProducts.length)} of {safeFilteredProducts.length} products
+          Showing {startIndex + 1} - {Math.min(endIndex, safeFilteredProducts.length)} of {safeFilteredProducts.length} products
         </p>
       </div>
-      <div className={`product-grid grid gap-6 pb-6 ${
-        isChatMaximized 
-          ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4' 
+      <div className={`product-grid grid gap-6 pb-6 ${isChatMaximized
+          ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4'
           : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
-      }`}>
+        }`}>
         {currentProducts.map((product) => {
           const imageResult = imageSearchResults?.find(item => item.product.product_id === product.product_id);
           const similarityScore = imageResult?.similarity_score;
           // If image search, tags are not relevant, so pass false
           const isRecentlyShipped = imageSearchResults ? false : recentlyShipped.has(product.product_id);
           return (
-            <ProductCard 
-              key={product.product_id} 
-              product={product} 
+            <ProductCard
+              key={product.product_id}
+              product={product}
               isBestSeller={bestSellers.has(product.product_id)}
               isRecentlyPurchased={recentlyPurchased.has(product.product_id)}
               isRecentlyShipped={isRecentlyShipped}
@@ -438,8 +483,8 @@ const Results: React.FC<ResultsProps> = ({
               <SelectContent className="max-h-[170px]">
                 <div className="overflow-y-auto max-h-[170px]">
                   {getAllPageNumbers().map((pageNum) => (
-                    <SelectItem 
-                      key={pageNum} 
+                    <SelectItem
+                      key={pageNum}
                       value={pageNum.toString()}
                       className="cursor-pointer hover:bg-gray-100"
                     >

@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, Float, Text, ForeignKey, Boolean, DECIMAL, BigInteger, SmallInteger
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, DECIMAL, BigInteger, SmallInteger, LargeBinary, DateTime
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 from .database import Base
 
 class Product(Base):
@@ -122,3 +123,12 @@ class ShipmentProduct(Base):
     created_at = Column(BigInteger)
 
     product = relationship("Product")
+
+class ProductImageFeatures(Base):
+    __tablename__ = "product_image_features"
+
+    image_id = Column(Integer, ForeignKey("product_image.image_id"), primary_key=True, index=True)
+    features = Column(LargeBinary, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    product_image = relationship("ProductImage")

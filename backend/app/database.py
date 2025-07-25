@@ -3,7 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
 from dotenv import load_dotenv
-from typing import List, Dict, Optional
+from typing import List, Dict
 import numpy as np
 
 load_dotenv()
@@ -32,22 +32,49 @@ class DatabaseManager:
     """Manages database connections and operations for image search"""
     
     def __init__(self):
-        self.connection = None
+        self.session = None
     
     def connect(self) -> bool:
-        """Establish database connection"""
+        """Establish database session"""
         try:
-            self.connection = engine.connect()
+            self.session = SessionLocal()
             return True
         except Exception as e:
-            print(f"Failed to connect to database: {e}")
+            print(f"Failed to create database session: {e}")
             return False
     
     def disconnect(self):
-        """Close database connection"""
-        if self.connection:
-            self.connection.close()
+        """Close database session"""
+        if self.session:
+            self.session.close()
+            self.session = None
     
+    def ensure_image_features_table_exists(self) -> bool:
+        """Ensure the product_image_features table exists"""
+        try:
+            check_query = text("""
+                SELECT COUNT(*) 
+                FROM information_schema.tables 
+                WHERE table_schema = :db_name 
+                AND table_name = 'product_image_features'
+            """)
+            result = self.session.execute(check_query, {"db_name": DB_NAME})
+            table_exists = result.fetchone()[0] > 0
+            if not table_exists:
+                create_query = text("""
+                    CREATE TABLE product_image_features (
+                        image_id INT NOT NULL PRIMARY KEY,
+                        features LONGBLOB NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (image_id) REFERENCES product_image(image_id)
+                    )
+                """)
+                self.session.execute(create_query)
+                self.session.commit()
+            return True
+        except Exception as e:
+            return False
+
     def get_products_with_images(self) -> List[Dict]:
         """Get all products with their images"""
         try:
@@ -87,21 +114,16 @@ class DatabaseManager:
                 AND p.if_sellable = 1
                 ORDER BY p.product_id, pi.image_sort
             """)
-            
-            result = self.connection.execute(query)
+            result = self.session.execute(query)
             rows = result.fetchall()
-            
             products = []
             for row in rows:
                 product_id = row.product_id
                 image_path = row.image_path
                 image_id = row.image_id
-                
                 if not image_path or not image_path.strip():
                     continue
-                
                 image_path = image_path.strip()
-                
                 products.append({
                     'product_id': product_id,
                     'product_name': row.product_name or 'Unknown',
@@ -129,7 +151,6 @@ class DatabaseManager:
                     'image_name': row.image_name or '',
                     'image_sort': int(row.image_sort) if row.image_sort else 0
                 })
-            
             return products
         except Exception as e:
             print(f"Error getting products with images: {e}")
@@ -142,15 +163,15 @@ class DatabaseManager:
                 VALUES (:image_id, :features)
                 ON DUPLICATE KEY UPDATE features = :features
             """)
-            self.connection.execute(query, {
+            self.session.execute(query, {
                 "image_id": image_id,
                 "features": features.astype(np.float32).tobytes()
             })
-            self.connection.commit()
+            self.session.commit()
             print(f"Successfully saved features for image_id: {image_id}")
         except Exception as e:
             print(f"Error saving image features for image_id {image_id}: {e}")
-            self.connection.rollback()
+            self.session.rollback()
 
     def get_all_image_features(self):
         try:
@@ -158,7 +179,7 @@ class DatabaseManager:
                 SELECT image_id, features
                 FROM product_image_features
             """)
-            result = self.connection.execute(query)
+            result = self.session.execute(query)
             rows = result.fetchall()
             features_list = []
             for row in rows:
@@ -170,7 +191,6 @@ class DatabaseManager:
                     })
                 except Exception as e:
                     print(f"Error processing features for image_id {row.image_id}: {e}")
-            
             return features_list
         except Exception as e:
             print(f"Error loading image features: {e}")

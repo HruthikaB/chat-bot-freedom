@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import { Search, MessagesSquare, Heart, ShoppingCart, X, Filter, Mic, Focus, MicOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,14 +20,18 @@ type HeaderProps = {
   onImageSearchStart?: () => void;
 };
 
-const Header = ({ 
+export interface HeaderRef {
+  clearSearchState: () => void;
+}
+
+const Header = forwardRef<HeaderRef, HeaderProps>(({ 
   toggleChat, 
   toggleProductsFilter, 
   onClearResults,
   onSearchResults,
   onImageSearchResults,
   onImageSearchStart
-}: HeaderProps) => {
+}, ref) => {
   const { cart } = useCart();
   const [searchText, setSearchText] = useState('');
   const [isFocused, setIsFocused] = useState(false);
@@ -347,9 +351,6 @@ const Header = ({
     if (e.key === 'Enter' && searchText.trim()) {
       await performSearch(searchText);
       setShowSuggestions(false);
-    } else if (e.key === ' ' && !isRecording && !isVoiceSearching) {
-      e.preventDefault();
-      handleMicClick();
     }
   };
 
@@ -361,6 +362,35 @@ const Header = ({
     onClearResults();
     inputRef.current?.focus();
   };
+
+  const clearSearchState = () => {
+    setSearchText('');
+    setSuggestions([]);
+    setDetailedSuggestions([]);
+    setShowSuggestions(false);
+    setIsFocused(false);
+    setIsRecording(false);
+    setIsVoiceSearching(false);
+    setIsRecordingStarted(false);
+    setShowImageSearchPopup(false);
+    setShowCameraModal(false);
+    setCapturedPhoto(null);
+    setIsVideoReady(false);
+    if (debounceTimeout.current) {
+      clearTimeout(debounceTimeout.current);
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
+  };
+
+  useImperativeHandle(ref, () => ({
+    clearSearchState
+  }));
 
   useEffect(() => {
     if (justSelectedSuggestion.current) {
@@ -536,54 +566,54 @@ const Header = ({
             className="pl-10 pr-10 py-2 w-full rounded-full bg-gray-100 border-none"
           />
           <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-3 pr-2">
-            <div className="relative group">
-              {isRecording ? (
-                <div className="flex items-center">
-                  <MicOff
-                    className="text-red-500 h-5 w-5 cursor-pointer hover:text-red-600 animate-pulse"
-                    onClick={handleMicClick}
+            {/* Show microphone and focus icons only when not typing */}
+            {!searchText && (
+              <>
+                <div className="relative group">
+                  {isRecording ? (
+                    <div className="flex items-center">
+                      <MicOff
+                        className="text-red-500 h-5 w-5 cursor-pointer hover:text-red-600 animate-pulse"
+                        onClick={handleMicClick}
+                      />
+                    </div>
+                  ) : isVoiceSearching ? (
+                    <div className="flex items-center">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-400"></div>
+                      <div className="ml-2 text-xs text-gray-500">
+                        Processing...
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center">
+                      <Mic
+                        className="text-gray-400 h-5 w-5 cursor-pointer hover:text-gray-600"
+                        onClick={handleMicClick}
+                      />
+                    </div>
+                  )}
+                </div>
+                
+                <div className="relative group">
+                  <Focus
+                    className="h-5 w-5 cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
+                    onClick={handleImageIconClick}
                   />
-
                 </div>
-              ) : isVoiceSearching ? (
-                <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-400"></div>
-                  <div className="ml-2 text-xs text-gray-500">
-                    Processing...
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center">
-                  <Mic
-                    className="text-gray-400 h-5 w-5 cursor-pointer hover:text-gray-600"
-                    onClick={handleMicClick}
-                  />
-                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                    Voice search
-                  </div>
-                </div>
-              )}
-            </div>
+              </>
+            )}
             
+            {/* Show X icon when typing */}
             {searchText && (
               <div className="relative group">
                 <button 
-                  className="text-gray-400 h-5 w-5 hover:text-gray-600" 
+                  className="text-gray-400 h-5 w-5 hover:text-gray-600 flex items-center justify-center" 
                   onClick={handleClearSearch}
                 >
                   <X className="h-5 w-5" />
                 </button>
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                  Clear search
-                </div>
               </div>
             )}
-            <div className="relative group">
-              <Focus
-                className="h-5 w-5 cursor-pointer transition-colors text-gray-400 hover:text-gray-600"
-                onClick={handleImageIconClick}
-              />
-            </div>
           </div>
           
           <input
@@ -824,6 +854,6 @@ const Header = ({
       </div>
     </header>
   );
-};
+});
 
 export default Header;

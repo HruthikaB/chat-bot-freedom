@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import Header from '@/components/Header';
+import { useState, useEffect, useRef } from 'react';
+import Header, { HeaderRef } from '@/components/Header';
 import Results from '@/components/Results';
 import ChatBot from '@/components/ChatBot';
 import ProductsFilter from '@/components/ProductsFilter';
@@ -9,6 +9,7 @@ import FilterModal, { FilterState } from '@/components/FilterModal';
 import { ImageSearchResponse, preloadFrequentlyUsedData } from '@/lib/api';
 
 const Index = () => {
+  const headerRef = useRef<HeaderRef>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isProductsFilterOpen, setIsProductsFilterOpen] = useState(false);
   const [isChatMaximized, setIsChatMaximized] = useState(false);
@@ -71,6 +72,8 @@ const Index = () => {
       manufacturer: '',
       price: ''
     });
+    // Clear search state in header
+    headerRef.current?.clearSearchState();
   };
 
   const handleApplyFilters = (filters: FilterState) => {
@@ -81,6 +84,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header 
+        ref={headerRef}
         toggleChat={() => setIsChatOpen(true)} 
         toggleProductsFilter={() => setIsProductsFilterOpen(true)}
         onSearchResults={handleSearchResults}

@@ -300,6 +300,7 @@ async def search_products_by_voice(
                 tag=product.tag,
                 product_type=product.product_type,
                 price=product.price,
+                sales=product.sales,
                 c_type=product.c_type,
                 c_category=product.c_category,
                 c_manufacturer=product.c_manufacturer,
@@ -315,6 +316,7 @@ async def search_products_by_voice(
                 w_height=product.w_height,
                 w_width=product.w_width,
                 w_depth=product.w_depth,
+                date_added=product.date_added,
                 images=[]
             )
             product_schemas.append(product_schema)

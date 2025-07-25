@@ -91,7 +91,7 @@ export const filterProductsByPrice = (products: Product[], priceRange: string): 
   });
 };
 
-export const sortProducts = (products: Product[], sortBy: string, bestSellers: Set<number>): Product[] => {
+export const sortProducts = (products: Product[], sortBy: string): Product[] => {
   const sortedProducts = [...products];
   
   sortedProducts.sort((a, b) => {
@@ -110,7 +110,10 @@ export const sortProducts = (products: Product[], sortBy: string, bestSellers: S
       case 'name_desc':
         return (b.name || '').localeCompare(a.name || '');
       case 'best_selling':
-        return (bestSellers.has(b.product_id) ? 1 : 0) - (bestSellers.has(a.product_id) ? 1 : 0);
+        // Sort by sales column from highest to lowest
+        const salesA = a.sales || 0;
+        const salesB = b.sales || 0;
+        return salesB - salesA; // Highest sales first
       case 'newest':
         return (b.date_added || '').localeCompare(a.date_added || '');
       default:

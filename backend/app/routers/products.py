@@ -378,42 +378,43 @@ def get_best_sellers(db: Session = Depends(get_db)):
     """
     Get best selling products for each manufacturer
     """
-    # First, get a subquery with the highest sales for each manufacturer
-    best_seller_subquery = (
-        db.query(
-            models.Product.c_manufacturer,
-            func.max(models.Product.sales).label('max_sales')
+    from sqlalchemy import func, desc, text
+    
+    # Use a more reliable approach with window functions
+    query = text("""
+        WITH RankedProducts AS (
+            SELECT 
+                p.*,
+                ROW_NUMBER() OVER (
+                    PARTITION BY p.c_manufacturer 
+                    ORDER BY p.sales DESC, p.product_id ASC
+                ) as rn
+            FROM product p
+            WHERE p.inactive = 0 
+                AND p.show_in_store = 1 
+                AND p.if_sellable = 1 
+                AND p.sales > 0
+                AND p.c_manufacturer IS NOT NULL 
+                AND p.c_manufacturer != ''
         )
-        .filter(
-            and_(
-                models.Product.inactive == 0,
-                models.Product.show_in_store == 1,
-                models.Product.if_sellable == 1,
-                models.Product.sales > 0  # Only consider products with sales
-            )
+        SELECT product_id FROM RankedProducts WHERE rn = 1
+        ORDER BY sales DESC
+    """)
+    
+    result = db.execute(query)
+    product_ids = [row[0] for row in result.fetchall()]
+    
+    # Get the complete product objects for these product IDs
+    if product_ids:
+        best_sellers = (
+            db.query(models.Product)
+            .filter(models.Product.product_id.in_(product_ids))
+            .order_by(desc(models.Product.sales))
+            .all()
         )
-        .group_by(models.Product.c_manufacturer)
-        .subquery()
-    )
-
-    # Then get the complete product information for these best sellers
-    best_sellers = (
-        db.query(models.Product)
-        .join(
-            best_seller_subquery,
-            (models.Product.c_manufacturer == best_seller_subquery.c.c_manufacturer) &
-            (models.Product.sales == best_seller_subquery.c.max_sales)
-        )
-        .filter(
-            and_(
-                models.Product.inactive == 0,
-                models.Product.show_in_store == 1,
-                models.Product.if_sellable == 1
-            )
-        )
-        .all()
-    )
-
+    else:
+        best_sellers = []
+    
     return best_sellers
 
 @router.get("/search", response_model=List[schemas.Product])

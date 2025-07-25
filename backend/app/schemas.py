@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import List, Optional
 from decimal import Decimal
+from datetime import datetime
 
 class ProductImageBase(BaseModel):
     image_name: Optional[str] = None
@@ -22,6 +23,7 @@ class ProductBase(BaseModel):
     tag: Optional[str] = None
     product_type: Optional[str] = None
     price: Optional[Decimal] = None
+    sales: Optional[int] = None
     c_type: Optional[str] = None
     c_category: Optional[str] = None
     c_manufacturer: Optional[str] = None
@@ -37,6 +39,7 @@ class ProductBase(BaseModel):
     w_height: Optional[Decimal] = None
     w_width: Optional[Decimal] = None
     w_depth: Optional[Decimal] = None
+    date_added: Optional[int] = None
 
 class ProductCreate(ProductBase):
     pass
@@ -70,6 +73,19 @@ class ShipmentProduct(BaseModel):
     shipment_id: int
     quantity: int
     created_at: int
+
+    class Config:
+        from_attributes = True
+
+class ProductImageFeaturesBase(BaseModel):
+    image_id: int
+    features: bytes
+
+class ProductImageFeaturesCreate(ProductImageFeaturesBase):
+    pass
+
+class ProductImageFeatures(ProductImageFeaturesBase):
+    created_at: datetime
 
     class Config:
         from_attributes = True
